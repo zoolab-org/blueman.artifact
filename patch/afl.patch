@@ -1,0 +1,58 @@
+diff --git a/Makefile b/Makefile
+index 3819312..51b2f29 100644
+--- a/Makefile
++++ b/Makefile
+@@ -44,7 +44,7 @@ endif
+ 
+ COMM_HDR    = alloc-inl.h config.h debug.h types.h
+ 
+-all: test_x86 $(PROGS) afl-as test_build all_done
++all: test_x86 $(PROGS) afl-as all_done
+ 
+ ifndef AFL_NO_X86
+ 
+@@ -102,7 +102,7 @@ test_build: afl-gcc afl-as afl-showmap
+ 
+ endif
+ 
+-all_done: test_build
++all_done: 
+ 	@if [ ! "`which clang 2>/dev/null`" = "" ]; then echo "[+] LLVM users: see llvm_mode/README.llvm for a faster alternative to afl-gcc."; fi
+ 	@echo "[+] All done! Be sure to review README - it's pretty short and useful."
+ 	@if [ "`uname`" = "Darwin" ]; then printf "\nWARNING: Fuzzing on MacOS X is slow because of the unusually high overhead of\nfork() on this OS. Consider using Linux or *BSD. You can also use VirtualBox\n(virtualbox.org) to put AFL inside a Linux or *BSD VM.\n\n"; fi
+diff --git a/afl-gcc.c b/afl-gcc.c
+index f0e4d85..df6a010 100644
+--- a/afl-gcc.c
++++ b/afl-gcc.c
+@@ -50,6 +50,9 @@
+ #include <unistd.h>
+ #include <stdlib.h>
+ #include <string.h>
++#include <sys/types.h>
++#include <sys/stat.h>
++#include <fcntl.h>
+ 
+ static u8*  as_path;                /* Path to the AFL 'as' wrapper      */
+ static u8** cc_params;              /* Parameters passed to the real CC  */
+@@ -332,12 +335,16 @@ int main(int argc, char** argv) {
+     exit(1);
+ 
+   }
++  if(strstr(argv[argc - 1], "/subsys/bluetooth")){
++      find_as(argv[0]);
+ 
+-  find_as(argv[0]);
+-
+-  edit_params(argc, argv);
+-
+-  execvp(cc_params[0], (char**)cc_params);
++      edit_params(argc, argv);
++      execvp(cc_params[0], (char**)cc_params);
++  }else{
++      u8* alt_cc = getenv("AFL_CC");
++      argv[0] = alt_cc ? alt_cc : (u8*)"gcc-11";
++      execvp(argv[0], argv);
++  }
+ 
+   FATAL("Oops, failed to execute '%s' - check your PATH", cc_params[0]);
+ 

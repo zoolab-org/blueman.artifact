@@ -1,0 +1,145 @@
+--- NHW_RADIO.c	2025-05-18 06:17:29.429293792 +0000
++++ NHW_RADIO_new.c	2025-05-18 06:17:12.949047686 +0000
+@@ -169,6 +169,117 @@
+ #error "This model only supports 1 instance so far"
+ #endif
+ 
++#if !defined(CONFIG_WITHOUT_BTFUZZ)
++#include <stdlib.h>
++#include "btfuzz.h"
++#include <stdint.h>
++#include <stddef.h>
++#include <sys/ipc.h>
++
++// try to use Linux's message queue to implement it
++static int qid;
++int create_msg_queue(){
++    qid = msgget(MSG_QUEUE_KEY, IPC_CREAT | 0777);
++
++    return qid;
++}
++/*
++int start_recv_pkts(long flags){
++    msg_fuzz_event msg;
++    msg.type = MSG_FUZZ_START_RECV;
++    msg.flags = flags;
++    
++    return msgsnd(qid, &msg, sizeof(msg.flags), 0);
++}
++*/
++int recv_ble_pkt(BLE_pkt* pkt){
++    msg_fuzz_pkt msg;
++    msg.type = MSG_FUZZ_RECV_PKT;
++    msg.pkt = *pkt;
++
++    return msgsnd(qid, &msg, sizeof(msg.pkt), 0);
++}
++
++int recv_ble_pkt_ack(BLE_pkt* pkt){
++    msg_fuzz_pkt msg;
++    msg.type = MSG_FUZZ_RECV_PKT_ACK;
++    msg.pkt = *pkt;
++
++    return msgsnd(qid, &msg, sizeof(msg.pkt), 0);
++}
++
++// Xiaobye
++#define FUZZ_STATE_IDLE 0
++#define FUZZ_STATE_RECV_PACKET 1
++
++static p2G4_address_t rx_address;
++static p2G4_address_t tx_address;
++static int fuzz_state = FUZZ_STATE_IDLE;
++
++static void hijack_packet_recorder(uint64_t off_of_payload, uint64_t len_of_payload, uint8_t* buf, uint8_t S1Offset, int rx){
++    static int qid;
++    uint64_t count = 0;
++    int n;
++    BLE_pkt pkt;
++    msg_fuzz_pkt msg_pkt;
++    uint max_length;
++    uint8_t payload_length;
++
++    if(fuzz_state == FUZZ_STATE_IDLE){
++        qid = create_msg_queue();
++        fuzz_state = FUZZ_STATE_RECV_PACKET;
++    }
++    if(fuzz_state == FUZZ_STATE_RECV_PACKET){ 
++        pkt.sid = count; 
++        pkt.mutated = 0; 
++        pkt.device_id = rx;
++        pkt.address = rx ? rx_address : tx_address;
++        pkt.len = len_of_payload + 2 + 3; 
++        pkt.max_payload_len = nhwra_get_MAXLEN(); 
++        // ignore crc
++        if(len_of_payload < sizeof(pkt.pkt)){
++            memcpy(pkt.pkt, buf, 2 + len_of_payload);
++        }else{
++            printf("hijack_packet_recorder overflow detect\n");
++            while(1);
++        }
++        do{
++            n = recv_ble_pkt(&pkt);  
++        }while(n < 0);
++        count++;
++        do{
++            n = msgrcv(qid, &msg_pkt, sizeof(msg_pkt.pkt), MSG_FUZZ_RECV_PKT_ACK , 0);
++        }while(n < 0);
++        if(msg_pkt.pkt.mutated == 1){
++            max_length = nhwra_get_MAXLEN();
++            payload_length = msg_pkt.pkt.len - 5;
++            payload_length = max_length > payload_length ? payload_length : max_length;
++            // modify length to valid length
++            buf[0] = payload_length; 
++            // make sure that mutated packet length won't exceed max length.
++            memcpy(buf + 2, msg_pkt.pkt.pkt, payload_length);
++        }else if(msg_pkt.pkt.mutated == 2){
++            exit(0);
++        }
++    }else{
++        printf("hijack_packet_recorder error\n");
++        while(1);
++    }
++}
++
++static void (*handler)(uint64_t , uint64_t , uint8_t*, uint8_t, int) = hijack_packet_recorder;
++
++static void hijack_ble_packet(uint64_t off_of_payload, uint64_t len_of_payload, uint8_t* pkt, uint8_t S1Offset, int rx){
++	if(rx == 1)
++	    handler(off_of_payload, len_of_payload, pkt, S1Offset, rx);
++    else{
++	    handler(off_of_payload, len_of_payload, pkt, S1Offset, rx);
++    }
++}
++#endif
++
++
++
+ NRF_RADIO_Type NRF_RADIO_regs;
+ 
+ static bs_time_t Timer_RADIO = TIME_NEVER; //main radio timer
+@@ -809,6 +920,13 @@
+ 
+   rx_status.ADDRESS_End_Time = address_time + nhwra_timings_get_Rx_chain_delay();
+ 
++#if !defined(CONFIG_WITHOUT_BTFUZZ)
++  // Xiaobye
++  // Hijack packet
++  uint payload_len = nhwra_get_payload_length(rx_buf);
++  hijack_ble_packet(2, payload_len, rx_buf, rx_status.S1Offset, 1);
++#endif
++
+   uint length = nhwra_get_payload_length(rx_buf);
+   uint max_length = nhwra_get_MAXLEN();
+ 
+@@ -944,6 +1062,10 @@
+   rx_status.rx_resp.status = P2G4_RXSTATUS_NOSYNC;
+ 
+   nhwra_prep_rx_request(&rx_status.rx_req, rx_addresses);
++#if !defined(CONFIG_WITHOUT_BTFUZZ)
++  // Xiaobye
++  rx_address = rx_addresses[0];
++#endif
+ 
+   update_abort_struct(&rx_status.rx_req.abort, &next_recheck_time);
+ 

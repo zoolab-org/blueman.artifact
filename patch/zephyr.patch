@@ -1,0 +1,35 @@
+diff --git a/Kconfig.zephyr b/Kconfig.zephyr
+index 5ad2fb2bf85..e1ecc408d96 100644
+--- a/Kconfig.zephyr
++++ b/Kconfig.zephyr
+@@ -955,3 +955,7 @@ config BOOTLOADER_BOSSA_ADAFRUIT_UF2
+ endchoice
+ 
+ endmenu
++config WITHOUT_BTFUZZ
++	bool "Compile without code of btfuzz"
++	help
++	  Compile without code of btfuzz
+diff --git a/arch/posix/CMakeLists.txt b/arch/posix/CMakeLists.txt
+index 2ec433ad5cb..29e3da23bf5 100644
+--- a/arch/posix/CMakeLists.txt
++++ b/arch/posix/CMakeLists.txt
+@@ -36,6 +36,9 @@ endif()
+ add_library(native_simulator INTERFACE)
+ set_property(TARGET native_simulator PROPERTY RUNNER_LINK_LIBRARIES "")
+ set_property(TARGET native_simulator PROPERTY LOCALIZE_EXTRA_OPTIONS "")
++if(CONFIG_WITHOUT_BTFUZZ)
++	target_compile_options(native_simulator INTERFACE "-DCONFIG_WITHOUT_BTFUZZ")
++endif()
+ 
+ set(NSI_DIR ${ZEPHYR_BASE}/scripts/native_simulator CACHE PATH "Path to the native simulator")
+ 
+diff --git a/boards/posix/nrf_bsim/nrf52_bsim_defconfig b/boards/posix/nrf_bsim/nrf52_bsim_defconfig
+index 953e8c1aa93..d4f60adbb60 100644
+--- a/boards/posix/nrf_bsim/nrf52_bsim_defconfig
++++ b/boards/posix/nrf_bsim/nrf52_bsim_defconfig
+@@ -5,3 +5,4 @@ CONFIG_BOARD_NRF52_BSIM=y
+ CONFIG_CONSOLE=y
+ CONFIG_NO_OPTIMIZATIONS=y
+ CONFIG_LOG_BACKEND_UART=n
++CONFIG_ARCH_POSIX_TRAP_ON_FATAL=y
