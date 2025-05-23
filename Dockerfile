@@ -11,12 +11,15 @@ RUN apt-get update && apt-get upgrade -y && \
         unzip python3-venv patch
 
 COPY patch/ /patch
-COPY blueman-main.zip /blueman-main.zip
+COPY blueman-main.zip /root/blueman-main.zip
+COPY build_zephyr_examples.sh /root/build_zephyr_examples.sh
+COPY build_btstack_examples.sh /root/build_btstack_examples.sh
+
 
 RUN cd /root && \
     git clone https://github.com/google/AFL.git AFL_FOR_ZEPHYR_BLE && \
     cd AFL_FOR_ZEPHYR_BLE && \
-    git apply /patch/afl.patch && \
+    git apply /patch/zephyr_afl.patch && \
     make && \
     mkdir -p /root/bin && \
     cp afl-gcc /root/bin/gcc
@@ -49,6 +52,25 @@ RUN cd /root/zephyrproject/modules/bsim_hw_models/nrf_hw_models/src/HW_models &&
     cd /root/zephyrproject/zephyr && \
     git apply /patch/zephyr.patch && \
     echo -e 'export BSIM_OUT_PATH=/root/zephyrproject/tools/bsim\nexport BSIM_COMPONENTS_PATH=${BSIM_OUT_PATH}/components/' > /root/.zephyrrc
+
+RUN chmod +x /root/build_zephyr_examples.sh && /root/build_zephyr_examples.sh
+
+RUN cd root/ && git clone https://github.com/bluekitchen/btstack.git && \
+    cd btstack && git checkout v1.6.2 && \
+    git apply /patch/btstack.patch
+
+RUN cd /root && \
+    git clone https://github.com/google/AFL.git AFL_FOR_BTSTACK && \
+    cd AFL_FOR_BTSTACK && \
+    git apply /patch/btstack_afl.patch && \
+    make && \
+    cp afl-gcc /root/bin/gcc
+
+RUN chmod +x /root/build_btstack_examples.sh && /root/build_btstack_examples.sh
+
+RUN cd /root && unzip blueman-main.zip && cd blueman-main && \
+    mkdir run && cp -r /root/zephyrproject/tools/bsim/lib ./ && \
+    make
 
 WORKDIR /root/
 

@@ -1,0 +1,69 @@
+diff --git a/port/zephyr/CMakeLists.txt b/port/zephyr/CMakeLists.txt
+index caa37e8ee..0bd17aa5b 100644
+--- a/port/zephyr/CMakeLists.txt
++++ b/port/zephyr/CMakeLists.txt
+@@ -133,9 +133,9 @@ add_library(btstack STATIC ${SOURCES})
+ # extra compiler warnings
+ target_compile_options(btstack PRIVATE
+      $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>>:
+-            -Wunused-variable -Wswitch-default -Werror -Wall>
++            -Wswitch-default -Wall>
+      $<$<CXX_COMPILER_ID:GNU>:
+-            -Wunused-but-set-variable -Wunused-variable -Wswitch-default -Werror -Wall>
++            -Wunused-but-set-variable -Wswitch-default -Wall>
+      $<$<CXX_COMPILER_ID:MSVC>:
+             /W4>)
+ 
+diff --git a/port/zephyr/btstack_config.h b/port/zephyr/btstack_config.h
+index 219e4146e..0721ec569 100644
+--- a/port/zephyr/btstack_config.h
++++ b/port/zephyr/btstack_config.h
+@@ -14,9 +14,9 @@
+ #define ENABLE_LE_CENTRAL
+ #define ENABLE_L2CAP_LE_CREDIT_BASED_FLOW_CONTROL_MODE
+ #define ENABLE_LE_DATA_LENGTH_EXTENSION
+-#define ENABLE_LE_EXTENDED_ADVERTISING
++//#define ENABLE_LE_EXTENDED_ADVERTISING
+ #define ENABLE_LE_ISOCHRONOUS_STREAMS
+-#define ENABLE_LE_PERIODIC_ADVERTISING
++//#define ENABLE_LE_PERIODIC_ADVERTISING
+ #define ENABLE_LE_PERIPHERAL
+ #define ENABLE_LOG_ERROR
+ #define ENABLE_LOG_INFO
+@@ -31,6 +31,7 @@
+ #define MAX_NR_SM_LOOKUP_ENTRIES 3
+ #define MAX_NR_WHITELIST_ENTRIES 1
+ #define MAX_NR_HCI_ISO_STREAMS 10
++#define MAX_NR_BATTERY_SERVICE_CLIENTS 10
+ 
+ #define MAX_NR_BNEP_CHANNELS 0
+ #define MAX_NR_BNEP_SERVICES 0
+diff --git a/port/zephyr/prj.conf b/port/zephyr/prj.conf
+index dba43b835..b50b75e9c 100644
+--- a/port/zephyr/prj.conf
++++ b/port/zephyr/prj.conf
+@@ -2,12 +2,12 @@
+ #CONFIG_CONSOLE=y
+ #CONFIG_STDOUT_CONSOLE=y
+ CONFIG_UART_CONSOLE=n
+-CONFIG_RTT_CONSOLE=y
+-CONFIG_USE_SEGGER_RTT=y
++CONFIG_RTT_CONSOLE=n
++CONFIG_USE_SEGGER_RTT=n
+ #CONFIG_GPIO=y
+ #CONFIG_SERIAL=y
+ #CONFIG_UART_INTERRUPT_DRIVEN=y
+-CONFIG_NEWLIB_LIBC=y
++#CONFIG_NEWLIB_LIBC=y
+ 
+ CONFIG_I2C=n
+ CONFIG_WATCHDOG=n
+@@ -23,7 +23,7 @@ CONFIG_BOOT_BANNER=n
+ CONFIG_BOOT_DELAY=0
+ 
+ CONFIG_SIZE_OPTIMIZATIONS=y
+-CONFIG_ARM_MPU=n
++#CONFIG_ARM_MPU=n
+ 
+ CONFIG_BT=y
+ CONFIG_BT_ISO_BROADCASTER=y
