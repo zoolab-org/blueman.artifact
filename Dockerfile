@@ -12,8 +12,7 @@ RUN apt-get update && apt-get upgrade -y && \
 
 COPY patch/ /patch
 COPY blueman-main.zip /root/blueman-main.zip
-COPY build_zephyr_examples.sh /root/build_zephyr_examples.sh
-COPY build_btstack_examples.sh /root/build_btstack_examples.sh
+COPY build_scripts /root/build_scripts
 
 
 RUN cd /root && \
@@ -53,7 +52,7 @@ RUN cd /root/zephyrproject/modules/bsim_hw_models/nrf_hw_models/src/HW_models &&
     git apply /patch/zephyr.patch && \
     echo -e 'export BSIM_OUT_PATH=/root/zephyrproject/tools/bsim\nexport BSIM_COMPONENTS_PATH=${BSIM_OUT_PATH}/components/' > /root/.zephyrrc
 
-RUN chmod +x /root/build_zephyr_examples.sh && /root/build_zephyr_examples.sh
+RUN chmod +x /root/build_scripts/build_zephyr_examples.sh && /root/build_scripts/build_zephyr_examples.sh
 
 RUN cd root/ && git clone https://github.com/bluekitchen/btstack.git && \
     cd btstack && git checkout v1.6.2 && \
@@ -66,7 +65,7 @@ RUN cd /root && \
     make && \
     cp afl-gcc /root/bin/gcc
 
-RUN chmod +x /root/build_btstack_examples.sh && /root/build_btstack_examples.sh
+RUN chmod +x /root/build_scripts/build_btstack_examples.sh && /root/build_scripts/build_btstack_examples.sh
 
 RUN cd /root && unzip blueman-main.zip && cd blueman-main && \
     mkdir run && cp -r /root/zephyrproject/tools/bsim/lib ./ && \
