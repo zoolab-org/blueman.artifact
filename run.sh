@@ -11,8 +11,11 @@ ACTIONS=(
 )
 MUTATORS=(field afl random)
 
-if [[ $# -ne 3 ]]; then
-  echo "Usage: $0 <action> <mutator> <output_dir>"
+PKTSELS=(FIXED_PROB_10 FIXED_PROB_25 FIXED_PROB_50 FIXED_PROB_75 FIXED_PROB_100
+         SELECTIVE_25_75 SELECTIVE_75_25 RANDOM_PROB MIXED_PROB)
+
+if [[ $# -lt 3 || $# -gt 4 ]]; then
+  echo "Usage: $0 <action> <mutator> [packet selection strategies] <output_dir>"
   echo
   echo "Available actions:"
   for a in "${ACTIONS[@]}"; do
@@ -23,12 +26,26 @@ if [[ $# -ne 3 ]]; then
   for m in "${MUTATORS[@]}"; do
     echo "  - $m"
   done
+  echo
+  echo "Available packet selection strategies (for field mutator only):"
+  for p in "${PKTSELS[@]}"; do
+    echo "  - $p"
+  done
   exit 1
 fi
 
-ACTION="$1"
-MUTATOR="$2"
-OUTPUT_DIR="$3"
+
+if [[ $# -eq 3 ]]; then
+  ACTION="$1"
+  MUTATOR="$2"
+  OUTPUT_DIR="$3"
+elif [[ $# -eq 4 ]]; then
+  ACTION="$1"
+  MUTATOR="$2"
+  PKTSEL="${3:-FIXED_PROB_50}"  # Default to FIXED_PROB_50 if not specified
+  OUTPUT_DIR="$4"
+fi
+
 
 target=""
 attack=""
@@ -81,33 +98,52 @@ case "$ACTION" in
     ;;
 esac
 
+# Third parameter: pktsel parameter for field mutator
+if [[ "$MUTATOR" == "field" && $# -eq 4 ]]; then
+  if [[ ! " ${PKTSELS[@]} " =~ " ${PKTSEL} " ]]; then
+    echo "Unknown packet selection strategy '$PKTSEL'"
+    echo "Available strategies: ${PKTSELS[*]}"
+    exit 1
+  fi
+fi
+
 # Second parameter: select mutator
 case "$MUTATOR" in
   field)
-    echo "Applying field-aware mutator"
+    echo "Applying field-aware mutator with packet selection strategy '$PKTSEL'"
+    MUTATOR_FLAG="PKTSEL_MODE=$PKTSEL"
     ;;
 
   afl)
     echo "Applying AFL-only mutator"
+    MUTATOR_FLAG="MUTATOR=afl"
+    if [[ $# -eq 4 ]]; then
+      echo "Warning: Packet selection strategy '$PKTSEL' is ignored for AFL mutator"
+    fi
     ;;
 
   random)
     echo "Applying random mutator"
+    MUTATOR_FLAG="MUTATOR=random"
+    if [[ $# -eq 4 ]]; then
+      echo "Warning: Packet selection strategy '$PKTSEL' is ignored for random mutator"
+    fi
     ;;
 
   *)
     echo "Default mutator: field-aware"
+    MUTATOR_FLAG="PKTSEL_MODE=$PKTSEL"
     ;;
 esac
 
-echo "Running action '$ACTION' with target=$target and attack=$attack using mutator '$MUTATOR'"
+echo "Running action '$ACTION' with target=$target and attack=$attack using mutator '$MUTATOR' and packet selection strategy '$PKTSEL'"
 # Execute inside Docker
 # Run in Docker with output_dir mounted to run folder
 echo "Running Docker container '$DOCKER_IMAGE' with output directory '$OUTPUT_DIR'"
 docker run --rm -it \
   -v "$OUTPUT_DIR":/root/blueman-main/run \
   $DOCKER_IMAGE \
-  /bin/bash -lc "cd /root/blueman-main && make && cd run && rm -rf output && ./main $BSIM_DIR '$attack' '$target' test"
-  #/bin/bash -lc "cd /root/blueman-main && make $MUTATOR && cd run && ./main $BSIM_DIR '$attack' '$target' test"
+  /bin/bash -lc "cd /root/blueman-main && make $MUTATOR_FLAG && cd run && rm -rf output && ./main $BSIM_DIR '$attack' '$target' test"
+  # /bin/bash -lc "cd /root/blueman-main && make && cd run && rm -rf output && ./main $BSIM_DIR '$attack' '$target' test"
 
 
