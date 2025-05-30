@@ -7,6 +7,8 @@ This is the repository for the artifact accompanying the paper "BLuEMan: A State
 **Full Paper:** TBA
 
 ## Setup
+> [!IMPORTANT]
+Please note that our tool can only be run on x86_64 machines
 1. **Please refer to the [official Docker documentation](https://docs.docker.com/engine/install/) for installation instructions**
 2. **Clone the repository and build the Docker image for the fuzzing environment**
 
