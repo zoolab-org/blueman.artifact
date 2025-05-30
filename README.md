@@ -80,6 +80,10 @@ For instance, if you want to test sm_pairing_peripheral with the AFL mutator, yo
 mkdir results
 ./run.sh sm_pairing_peripheral afl ./results
 ```
-
+Or if you want to test gatt_write_central with the field mutator, you can run the following commands:
+```bash
+mkdir results
+./run.sh gatt_write_central field FIXED_PROB_100 ./results
+```
 
 
