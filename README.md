@@ -19,7 +19,7 @@ Please note that our tool can only be run on x86_64 machines
     ```
 
 ## Test Target
-Executing **./run.sh** without any arguments will display the usage information for the tool
+Executing **./run.sh** without any arguments displays the usage information for the tool.
 ```bash
 Usage: ./run.sh <action> <mutator> [packet selection strategies] <output_dir>
 
@@ -52,31 +52,31 @@ Available packet selection strategies (for field mutator only):
 ### Available Actions
 - gatt_write_peripheral
     - Testing the **samples
-/bluetooth/peripheral_gatt_write** exmaple in Zephyr
+/bluetooth/peripheral_gatt_write** example in Zephyr
 - hr_peripheral
     - Testing the **samples
-/bluetooth/peripheral_hr** exmaple in Zephyr
+/bluetooth/peripheral_hr** example in Zephyr
 - sm_pairing_peripheral
-    - Testing the **example/sm_pairing_peripheral.c** exmaple in BTstack
+    - Testing the **example/sm_pairing_peripheral.c** example in BTstack
 - le_credit_server
-    - Testing the **example/le_credit_based_flow_control_mode_server.c** exmaple in BTstack
+    - Testing the **example/le_credit_based_flow_control_mode_server.c** example in BTstack
 - gatt_write_central
     - Testing the **samples
-/bluetooth/central_gatt_write** exmaple in Zephyr
+/bluetooth/central_gatt_write** example in Zephyr
 - hr_central
     - Testing the **samples
-/bluetooth/central_hr** exmaple in Zephyr
+/bluetooth/central_hr** example in Zephyr
 - sm_pairing_central
-    - Testing the **example/sm_pairing_central.c** exmaple in BTstack
+    - Testing the **example/sm_pairing_central.c** example in BTstack
 - le_credit_client
-    - Testing the **example/le_credit_based_flow_control_mode_client.c** exmaple in BTstack
+    - Testing the **example/le_credit_based_flow_control_mode_client.c** example in BTstack
 ### Available Mutators
 - field
     - The mutator understands Bluetooth protocol structure. The packet is mutated within the bounds defined by the corresponding protocol specification.
 - afl
     - Apply the havoc mutators from AFL.
 - random
-    - Apply random bytes mutations to the entire packet.
+    - Apply random byte mutations to the entire packet.
 
 ### Available Packet selection strategies (field-aware mutator only)
 - FIXED_PROB_10/ FIXED_PROB_25/ FIXED_PROB_50/ FIXED_PROB_75/ FIXED_PROB_100: Fixed mutation probabilities
@@ -85,7 +85,7 @@ Available packet selection strategies (for field mutator only):
 - MIXED_PROB: Mixed strategy mode
 
 ## Start Fuzzing
-To start fuzzing, you need to choose an action and a mutator from the list.
+To start fuzzing, choose at least an action and a mutator from the list.
 > [!IMPORTANT]
 > Each new fuzz test should use a separate directory to store the results.
 
@@ -102,8 +102,8 @@ mkdir results
 
 ## Reported CVEs
 
-- **CVE-2023-4424**: An malicious BLE device can cause buffer overflow by sending malformed advertising packet BLE device using Zephyr OS, leading to DoS or potential RCE on the victim BLE device [[issue tracking](https://github.com/zephyrproject-rtos/zephyr/security/advisories/GHSA-j4qm-xgpf-qjw3)].
-- **CVE-2024-3077**: An malicious BLE device can crash BLE victim device by sending malformed gatt packet [[issue tracking](https://github.com/zephyrproject-rtos/zephyr/security/advisories/GHSA-gmfv-4vfh-2mh8)].
+- **CVE-2023-4424**: A malicious BLE device can cause buffer overflow by sending malformed advertising packet BLE device using Zephyr OS, leading to DoS or potential RCE on the victim BLE device [[issue tracking](https://github.com/zephyrproject-rtos/zephyr/security/advisories/GHSA-j4qm-xgpf-qjw3)].
+- **CVE-2024-3077**: A malicious BLE device can crash a BLE victim device by sending malformed gatt packets [[issue tracking](https://github.com/zephyrproject-rtos/zephyr/security/advisories/GHSA-gmfv-4vfh-2mh8)].
 - **CVE-2024-3332**: A malicious BLE device can send a specific order of packet sequence to cause a DoS attack on the victim BLE device [[issue tracking](https://github.com/zephyrproject-rtos/zephyr/security/advisories/GHSA-jmr9-xw2v-5vf4)].
 - **CVE-2024-4785**: BT: Missing Check in LL_CONNECTION_UPDATE_IND Packet Leads to Division by Zero [[issue tracking](https://github.com/zephyrproject-rtos/zephyr/security/advisories/GHSA-xcr5-5g98-mchp)].
 
