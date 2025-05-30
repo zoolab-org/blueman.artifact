@@ -16,8 +16,6 @@ This is the repository for the artifact accompanying the paper "BLuEMan: A State
     ./build.sh
     ```
 
----
-
 ## Test Target
 Executing **./run.sh** without any arguments will display the usage information for the tool
 ```bash
