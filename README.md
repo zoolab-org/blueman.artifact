@@ -74,7 +74,8 @@ Available packet selections(field-aware mutator only):
 
 ## Start Fuzzing
 To start fuzzing, you need to choose an action and a mutator from the list. 
-> [!IMPORTANT] Each new fuzz test should use a separate directory to store the results.
+> [!IMPORTANT]
+> Each new fuzz test should use a separate directory to store the results.
 
 For instance, if you want to test sm_pairing_peripheral with the AFL mutator, you can run the following commands:
 ```bash
