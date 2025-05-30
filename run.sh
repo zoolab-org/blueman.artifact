@@ -145,6 +145,7 @@ case "$MUTATOR" in
 
   *)
     echo "Default mutator: field-aware"
+    MUTATOR=field
     MUTATOR_FLAG="PKTSEL_MODE=$PKTSEL"
     ;;
 esac
@@ -156,7 +157,6 @@ echo "Running Docker container '$DOCKER_IMAGE' with output directory '$OUTPUT_DI
 docker run --rm -it \
   -v "$OUTPUT_DIR":/root/blueman-main/run \
   $DOCKER_IMAGE \
-  /bin/bash -lc "cd /root/blueman-main && make $MUTATOR_FLAG && cd run && rm -rf output && ./main $BSIM_DIR '$attack' '$target' test"
-  # /bin/bash -lc "cd /root/blueman-main && make && cd run && rm -rf output && ./main $BSIM_DIR '$attack' '$target' test"
+  /bin/bash -lc "cd /root/blueman-main && make build_stat $MUTATOR_FLAG && cd run && rm -rf output && ./main $BSIM_DIR '$attack' '$target' $MUTATOR"
 
 
