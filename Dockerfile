@@ -8,7 +8,7 @@ RUN apt-get update && apt-get upgrade -y && \
         git cmake ninja-build gperf ccache dfu-util device-tree-compiler \
         wget python3-dev python3-pip python3-setuptools python3-tk python3-wheel \
         xz-utils file make gcc gcc-multilib g++-multilib libsdl2-dev libmagic1 \
-        unzip python3-venv patch
+        unzip python3-venv patch r-base libjson-c-dev
 
 COPY patch/ /patch
 COPY blueman-main.zip /root/blueman-main.zip
