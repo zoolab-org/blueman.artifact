@@ -5,9 +5,11 @@ ACTIONS=(
   gatt_write_peripheral
   hr_peripheral
   sm_pairing_peripheral
+  le_credit_server
   gatt_write_central
   hr_central
   sm_pairing_central
+  le_credit_client
 )
 MUTATORS=(field afl random)
 
@@ -77,6 +79,12 @@ case "$ACTION" in
     target="$BTSTACK_BUILD_DIR/instrumented_sm_pairing_peripheral/zephyr/zephyr.exe"
     attack="$BTSTACK_BUILD_DIR/sm_pairing_central/zephyr/zephyr.exe"
     ;;
+
+  le_credit_server)
+    target="$BTSTACK_BUILD_DIR/instrumented_le_credit_based_flow_control_mode_server/zephyr/zephyr.exe"
+    attack="$BTSTACK_BUILD_DIR/le_credit_based_flow_control_mode_client/zephyr/zephyr.exe"
+    ;;
+
   gatt_write_central)
     target="$ZEPHYR_BUILD_DIR/instrumented_central_gatt_write/zephyr/zephyr.exe"
     attack="$ZEPHYR_BUILD_DIR/peripheral_gatt_write/zephyr/zephyr.exe"
@@ -91,6 +99,11 @@ case "$ACTION" in
     target="$BTSTACK_BUILD_DIR/instrumented_sm_pairing_central/zephyr/zephyr.exe"
     attack="$BTSTACK_BUILD_DIR/sm_pairing_peripheral/zephyr/zephyr.exe"
     ;;
+  le_credit_client)
+    target="$BTSTACK_BUILD_DIR/instrumented_le_credit_based_flow_control_mode_client/zephyr/zephyr.exe"
+    attack="$BTSTACK_BUILD_DIR/le_credit_based_flow_control_mode_server/zephyr/zephyr.exe"
+    ;;
+
 
   *)
     echo "Unknown action: $ACTION"

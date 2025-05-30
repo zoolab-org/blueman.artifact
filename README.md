@@ -27,16 +27,18 @@ Available actions:
   - gatt_write_peripheral
   - hr_peripheral
   - sm_pairing_peripheral
+  - le_credit_server
   - gatt_write_central
   - hr_central
   - sm_pairing_central
+  - le_credit_client
 
 Available mutators:
   - field
   - afl
   - random
 
-Available packet selections(field-aware mutator only):
+Available packet selection strategies (for field mutator only):
   - FIXED_PROB_10
   - FIXED_PROB_25
   - FIXED_PROB_50
@@ -56,6 +58,8 @@ Available packet selections(field-aware mutator only):
 /bluetooth/peripheral_hr** exmaple in Zephyr
 - sm_pairing_peripheral
     - Testing the **example/sm_pairing_peripheral.c** exmaple in BTstack
+- le_credit_server
+    - Testing the **example/le_credit_based_flow_control_mode_server.c** exmaple in BTstack
 - gatt_write_central
     - Testing the **samples
 /bluetooth/central_gatt_write** exmaple in Zephyr
@@ -64,6 +68,8 @@ Available packet selections(field-aware mutator only):
 /bluetooth/central_hr** exmaple in Zephyr
 - sm_pairing_central
     - Testing the **example/sm_pairing_central.c** exmaple in BTstack
+- le_credit_client
+    - Testing the **example/le_credit_based_flow_control_mode_client.c** exmaple in BTstack
 ### Available Mutators
 - field
     - The mutator understands Bluetooth protocol structure. The packet is mutated within the bounds defined by the corresponding protocol specification.
