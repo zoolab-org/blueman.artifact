@@ -24,11 +24,11 @@ index 2ec433ad5cb..29e3da23bf5 100644
  
  set(NSI_DIR ${ZEPHYR_BASE}/scripts/native_simulator CACHE PATH "Path to the native simulator")
  
-diff --git a/boards/posix/nrf_bsim/nrf52_bsim_defconfig b/boards/posix/nrf_bsim/nrf52_bsim_defconfig
-index 953e8c1aa93..d4f60adbb60 100644
---- a/boards/posix/nrf_bsim/nrf52_bsim_defconfig
-+++ b/boards/posix/nrf_bsim/nrf52_bsim_defconfig
-@@ -5,3 +5,4 @@ CONFIG_BOARD_NRF52_BSIM=y
+diff --git a/boards/native/nrf_bsim/nrf52_bsim_defconfig b/boards/native/nrf_bsim/nrf52_bsim_defconfig
+index 0559b64671..919662a23d 100644
+--- a/boards/native/nrf_bsim/nrf52_bsim_defconfig
++++ b/boards/native/nrf_bsim/nrf52_bsim_defconfig
+@@ -4,3 +4,4 @@
  CONFIG_CONSOLE=y
  CONFIG_NO_OPTIMIZATIONS=y
  CONFIG_LOG_BACKEND_UART=n

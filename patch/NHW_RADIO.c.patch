@@ -1,9 +1,12 @@
---- NHW_RADIO.c	2025-05-18 06:17:29.429293792 +0000
-+++ NHW_RADIO_new.c	2025-05-18 06:17:12.949047686 +0000
-@@ -169,6 +169,117 @@
+diff --git a/src/HW_models/NHW_RADIO.c b/src/HW_models/NHW_RADIO.c
+index 682b13c..756572b 100644
+--- a/src/HW_models/NHW_RADIO.c
++++ b/src/HW_models/NHW_RADIO.c
+@@ -203,6 +203,131 @@
+ #if NHW_RADIO_TOTAL_INST > 1
  #error "This model only supports 1 instance so far"
  #endif
- 
++ 
 +#if !defined(CONFIG_WITHOUT_BTFUZZ)
 +#include <stdlib.h>
 +#include "btfuzz.h"
@@ -23,7 +26,6 @@
 +    msg_fuzz_event msg;
 +    msg.type = MSG_FUZZ_START_RECV;
 +    msg.flags = flags;
-+    
 +    return msgsnd(qid, &msg, sizeof(msg.flags), 0);
 +}
 +*/
@@ -42,14 +44,29 @@
 +
 +    return msgsnd(qid, &msg, sizeof(msg.pkt), 0);
 +}
++/*
++int end_recv_pkts(long flags){
++    msg_fuzz_event msg;
++    msg.type = MSG_FUZZ_END_RECV;
++    msg.flags = flags;
 +
-+// Xiaobye
++    return msgsnd(qid, &msg, sizeof(msg.flags), 0);
++}
++*/
++
 +#define FUZZ_STATE_IDLE 0
 +#define FUZZ_STATE_RECV_PACKET 1
 +
 +static p2G4_address_t rx_address;
 +static p2G4_address_t tx_address;
 +static int fuzz_state = FUZZ_STATE_IDLE;
++/*
++__attribute__((destructor)) void test_on_exit(){
++    if(fuzz_state == FUZZ_STATE_RECV_PACKET){
++        end_recv_pkts(0);
++    }
++    printf("end receiving pakets!!\n");
++}*/
 +
 +static void hijack_packet_recorder(uint64_t off_of_payload, uint64_t len_of_payload, uint8_t* buf, uint8_t S1Offset, int rx){
 +    static int qid;
@@ -62,16 +79,18 @@
 +
 +    if(fuzz_state == FUZZ_STATE_IDLE){
 +        qid = create_msg_queue();
++  //      start_recv_pkts(0);
 +        fuzz_state = FUZZ_STATE_RECV_PACKET;
 +    }
-+    if(fuzz_state == FUZZ_STATE_RECV_PACKET){ 
-+        pkt.sid = count; 
-+        pkt.mutated = 0; 
++    if(fuzz_state == FUZZ_STATE_RECV_PACKET){
++        pkt.sid = count;
++        pkt.mutated = 0;
 +        pkt.device_id = rx;
 +        pkt.address = rx ? rx_address : tx_address;
-+        pkt.len = len_of_payload + 2 + 3; 
-+        pkt.max_payload_len = nhwra_get_MAXLEN(); 
++        pkt.len = len_of_payload + 2 + 3;
++        pkt.max_payload_len = nhwra_get_MAXLEN();
 +        // ignore crc
++        // 2 bytes is header
 +        if(len_of_payload < sizeof(pkt.pkt)){
 +            memcpy(pkt.pkt, buf, 2 + len_of_payload);
 +        }else{
@@ -79,7 +98,7 @@
 +            while(1);
 +        }
 +        do{
-+            n = recv_ble_pkt(&pkt);  
++            n = recv_ble_pkt(&pkt);
 +        }while(n < 0);
 +        count++;
 +        do{
@@ -90,9 +109,11 @@
 +            payload_length = msg_pkt.pkt.len - 5;
 +            payload_length = max_length > payload_length ? payload_length : max_length;
 +            // modify length to valid length
-+            buf[0] = payload_length; 
++            //buf[0] = msg_pkt.pkt.pkt[0];
++            buf[0] = payload_length;
 +            // make sure that mutated packet length won't exceed max length.
 +            memcpy(buf + 2, msg_pkt.pkt.pkt, payload_length);
++            //memcpy(buf, msg_pkt.pkt.pkt, msg_pkt.pkt.len);
 +        }else if(msg_pkt.pkt.mutated == 2){
 +            exit(0);
 +        }
@@ -101,9 +122,7 @@
 +        while(1);
 +    }
 +}
-+
 +static void (*handler)(uint64_t , uint64_t , uint8_t*, uint8_t, int) = hijack_packet_recorder;
-+
 +static void hijack_ble_packet(uint64_t off_of_payload, uint64_t len_of_payload, uint8_t* pkt, uint8_t S1Offset, int rx){
 +	if(rx == 1)
 +	    handler(off_of_payload, len_of_payload, pkt, S1Offset, rx);
@@ -112,34 +131,44 @@
 +    }
 +}
 +#endif
-+
-+
-+
+ 
  NRF_RADIO_Type NRF_RADIO_regs;
  
- static bs_time_t Timer_RADIO = TIME_NEVER; //main radio timer
-@@ -809,6 +920,13 @@
+@@ -879,7 +1004,13 @@ static void start_Tx(void) {
+   nhwra_prep_tx_request(&tx_status.tx_req, main_packet_size, packet_duration,
+                         main_packet_start_time, main_packet_coding_rate);
+   update_abort_struct(&tx_status.tx_req.abort, &next_recheck_time);
+-
++#if !defined(CONFIG_WITHOUT_BTFUZZ)
++/*
++  int S1Off = 0;
++  tx_address = tx_status.tx_req.phy_address;
++  hijack_ble_packet(2, payload_len, tx_buf, S1Off, 0);
++*/
++#endif
+   int ret;
+   if (tx_status.codedphy) {
+     //Request the FEC1 Tx from the Phy:
+@@ -953,7 +1084,11 @@ static void Rx_handle_end_response(bs_time_t end_time) {
+ static void Rx_handle_address_end_response(bs_time_t address_time) {
  
    rx_status.ADDRESS_End_Time = address_time + nhwra_timings_get_Rx_chain_delay();
- 
+-
 +#if !defined(CONFIG_WITHOUT_BTFUZZ)
-+  // Xiaobye
 +  // Hijack packet
 +  uint payload_len = nhwra_get_payload_length(rx_buf);
 +  hijack_ble_packet(2, payload_len, rx_buf, rx_status.S1Offset, 1);
 +#endif
-+
-   uint length = nhwra_get_payload_length(rx_buf);
-   uint max_length = nhwra_get_MAXLEN();
- 
-@@ -944,6 +1062,10 @@
-   rx_status.rx_resp.status = P2G4_RXSTATUS_NOSYNC;
- 
+   if ((rx_status.codedphy == true) && (rx_status.inFEC1)) {
+     rx_status.FEC2_start_time = address_time + 16 + 24 + 1; /* It will be updated on the FEC1 Rx end */
+     rx_status.packet_rejected = false; //We always accept the FEC1 part
+@@ -1155,6 +1290,9 @@ static void start_Rx(void) {
+     update_abort_struct(&rx_status.rx_req_fec1.abort, &next_recheck_time);
+   }
    nhwra_prep_rx_request(&rx_status.rx_req, rx_addresses);
 +#if !defined(CONFIG_WITHOUT_BTFUZZ)
-+  // Xiaobye
 +  rx_address = rx_addresses[0];
 +#endif
- 
    update_abort_struct(&rx_status.rx_req.abort, &next_recheck_time);
  
+   //attempt to receive

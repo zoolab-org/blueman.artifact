@@ -34,7 +34,9 @@ RUN cd /root && \
 RUN python3 -m venv /root/zephyrproject/.venv && \
     source /root/zephyrproject/.venv/bin/activate && \
     pip install --no-cache-dir west && \
-    west init -m https://github.com/zephyrproject-rtos/zephyr --mr v3.6.0 /root/zephyrproject && \
+    west init -m https://github.com/zephyrproject-rtos/zephyr --mr main /root/zephyrproject && \
+    cd /root/zephyrproject/zephyr && \
+    git checkout f211cd6345555086307da8c4998783ebe0ec0027 && \
     cd /root/zephyrproject && \
     west config manifest.group-filter -- +babblesim && \
     west update && \
@@ -46,9 +48,9 @@ RUN source /root/zephyrproject/.venv/bin/activate && \
     pip install --no-cache-dir -r /root/zephyrproject/zephyr/scripts/requirements.txt
 
 RUN cd /root/zephyrproject/modules/bsim_hw_models/nrf_hw_models/src/HW_models && \
-    patch NHW_RADIO.c < /patch/NHW_RADIO.c.patch && \
-    cp /patch/btfuzz.h . && \
-    cd /root/zephyrproject/zephyr && \
+    patch NHW_RADIO.c < /patch/NHW_RADIO.c.patch 
+RUN cp /patch/btfuzz.h /root/zephyrproject/modules/bsim_hw_models/nrf_hw_models/src/HW_models/
+RUN cd /root/zephyrproject/zephyr && \
     git apply /patch/zephyr.patch && \
     echo -e 'export BSIM_OUT_PATH=/root/zephyrproject/tools/bsim\nexport BSIM_COMPONENTS_PATH=${BSIM_OUT_PATH}/components/' > /root/.zephyrrc
 
