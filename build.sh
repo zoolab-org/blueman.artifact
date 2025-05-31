@@ -1,4 +1,4 @@
 #!/bin/bash
 
 set -e
-docker build -t blueman_demo .
+docker build --no-cache -t blueman_demo .

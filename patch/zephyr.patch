@@ -1,8 +1,8 @@
-diff --git a/Kconfig.zephyr b/Kconfig.zephyr
-index 5ad2fb2bf85..e1ecc408d96 100644
+ff --git a/Kconfig.zephyr b/Kconfig.zephyr
+index b315a0e7aa..c0c6db9c19 100644
 --- a/Kconfig.zephyr
 +++ b/Kconfig.zephyr
-@@ -955,3 +955,7 @@ config BOOTLOADER_BOSSA_ADAFRUIT_UF2
+@@ -956,3 +956,7 @@ config BOOTLOADER_BOSSA_ADAFRUIT_UF2
  endchoice
  
  endmenu
@@ -11,19 +11,20 @@ index 5ad2fb2bf85..e1ecc408d96 100644
 +	help
 +	  Compile without code of btfuzz
 diff --git a/arch/posix/CMakeLists.txt b/arch/posix/CMakeLists.txt
-index 2ec433ad5cb..29e3da23bf5 100644
+index 478e29cac1..9abec2e84f 100644
 --- a/arch/posix/CMakeLists.txt
 +++ b/arch/posix/CMakeLists.txt
-@@ -36,6 +36,9 @@ endif()
+@@ -36,7 +36,9 @@ endif()
  add_library(native_simulator INTERFACE)
  set_property(TARGET native_simulator PROPERTY RUNNER_LINK_LIBRARIES "")
  set_property(TARGET native_simulator PROPERTY LOCALIZE_EXTRA_OPTIONS "")
+-
 +if(CONFIG_WITHOUT_BTFUZZ)
 +	target_compile_options(native_simulator INTERFACE "-DCONFIG_WITHOUT_BTFUZZ")
 +endif()
- 
  set(NSI_DIR ${ZEPHYR_BASE}/scripts/native_simulator CACHE PATH "Path to the native simulator")
  
+ if(EXISTS ${CMAKE_CURRENT_LIST_DIR}/${CMAKE_HOST_SYSTEM_NAME}.${CMAKE_HOST_SYSTEM_PROCESSOR}.cmake)
 diff --git a/boards/native/nrf_bsim/nrf52_bsim_defconfig b/boards/native/nrf_bsim/nrf52_bsim_defconfig
 index 0559b64671..919662a23d 100644
 --- a/boards/native/nrf_bsim/nrf52_bsim_defconfig
@@ -33,3 +34,1056 @@ index 0559b64671..919662a23d 100644
  CONFIG_NO_OPTIMIZATIONS=y
  CONFIG_LOG_BACKEND_UART=n
 +CONFIG_ARCH_POSIX_TRAP_ON_FATAL=y
+\ No newline at end of file
+diff --git a/samples/bluetooth/central_otc/src/main.c b/samples/bluetooth/central_otc/src/main.c
+index 7c2c659f51..82e3eb5ba6 100644
+--- a/samples/bluetooth/central_otc/src/main.c
++++ b/samples/bluetooth/central_otc/src/main.c
+@@ -26,7 +26,16 @@
+ /* Hardcoded here since definition is in internal header */
+ #define BT_GATT_OTS_OLCP_RES_OPERATION_FAILED 0x04
+ #define BT_GATT_OTS_OLCP_RES_OUT_OF_BONDS     0x05
++#define PRIORITY 7
++#define STACKSIZE 1024
+ 
++#define STATE_SELECT_OBJ 0
++#define STATE_READ_OBJ_META 1
++#define STATE_WRITE_OBJ 2
++#define STATE_READ_OBJ 3
++
++static int test_state = STATE_SELECT_OBJ;
++static int subscribed = 0;
+ static struct bt_ots_client otc;
+ static struct bt_ots_client_cb otc_cb;
+ static struct bt_gatt_discover_params discover_params;
+@@ -70,30 +79,6 @@ static void print_hex_number(const uint8_t *num, size_t len)
+ 	printk("\n");
+ }
+ 
+-/*
+- * Get buttons configuration from the devicetree sw0~sw3 alias. This is mandatory.
+- */
+-#define SW0_NODE DT_ALIAS(sw0)
+-#define SW1_NODE DT_ALIAS(sw1)
+-#define SW2_NODE DT_ALIAS(sw2)
+-#define SW3_NODE DT_ALIAS(sw3)
+-#if !DT_NODE_HAS_STATUS(SW0_NODE, okay) || !DT_NODE_HAS_STATUS(SW1_NODE, okay) ||                  \
+-	!DT_NODE_HAS_STATUS(SW2_NODE, okay) || !DT_NODE_HAS_STATUS(SW3_NODE, okay)
+-#error "Unsupported board: This sample need 4 buttons to run"
+-#endif
+-
+-static const struct gpio_dt_spec button0 = GPIO_DT_SPEC_GET_OR(SW0_NODE, gpios, {0});
+-static const struct gpio_dt_spec button1 = GPIO_DT_SPEC_GET_OR(SW1_NODE, gpios, {0});
+-static const struct gpio_dt_spec button2 = GPIO_DT_SPEC_GET_OR(SW2_NODE, gpios, {0});
+-static const struct gpio_dt_spec button3 = GPIO_DT_SPEC_GET_OR(SW3_NODE, gpios, {0});
+-#define BTN_COUNT 4
+-
+-static const struct gpio_dt_spec btns[BTN_COUNT] = {button0, button1, button2, button3};
+-static struct gpio_callback button_cb_data;
+-struct otc_btn_work_info {
+-	struct k_work_delayable work;
+-	uint32_t pins;
+-} otc_btn_work;
+ 
+ struct otc_checksum_work_info {
+ 	struct k_work_delayable work;
+@@ -101,69 +86,84 @@ struct otc_checksum_work_info {
+ 	size_t len;
+ } otc_checksum_work;
+ 
+-static void otc_btn_work_fn(struct k_work *work)
+-{
+-	struct k_work_delayable *dwork = k_work_delayable_from_work(work);
+-	struct otc_btn_work_info *btn_work = CONTAINER_OF(dwork, struct otc_btn_work_info, work);
++static int test_select_id(){
+ 	int err;
+-	size_t size_to_write;
+-
+-	if (btn_work->pins == BIT(button0.pin)) {
+-		if (!first_selected) {
+-			err = bt_ots_client_select_id(&otc, default_conn, BT_OTS_OBJ_ID_MIN);
+-			first_selected = true;
+-		} else {
+-			printk("select next\n");
+-			err = bt_ots_client_select_next(&otc, default_conn);
+-		}
+-
+-		if (err != 0) {
+-			printk("Failed to select object (err %d)\n", err);
+-		}
+-
+-		printk("Selecting object succeeded\n");
+-	} else if (btn_work->pins == BIT(button1.pin)) {
+-		printk("read OTS object meta\n");
+-		err = bt_ots_client_read_object_metadata(&otc, default_conn,
+-							 BT_OTS_METADATA_REQ_ALL);
+-		if (err != 0) {
+-			printk("Failed to read object metadata (err %d)\n", err);
+-		}
+-
+-	} else if (btn_work->pins == BIT(button2.pin)) {
+-		if (BT_OTS_OBJ_GET_PROP_WRITE(otc.cur_object.props)) {
+-			size_to_write = MIN(OBJ_MAX_SIZE, otc.cur_object.size.alloc);
+-			(void)memset(obj_data_buf, 0, size_to_write);
+-			printk("Going to write OTS object len %d\n", size_to_write);
+-			for (uint32_t idx = 0; idx < size_to_write; idx++) {
+-				obj_data_buf[idx] = UINT8_MAX - (idx % UINT8_MAX);
+-			}
+-
+-			last_checksum = bt_ots_client_calc_checksum(obj_data_buf, size_to_write);
+-			printk("Data sent checksum 0x%08x\n", last_checksum);
+-			err = bt_ots_client_write_object_data(&otc, default_conn, obj_data_buf,
+-							      size_to_write, 0,
+-							      BT_OTS_OACP_WRITE_OP_MODE_NONE);
+-			if (err != 0) {
+-				printk("Failed to write object (err %d)\n", err);
+-			}
+-		} else {
+-			printk("This OBJ does not support WRITE OP\n");
+-		}
+-
+-	} else if (btn_work->pins == BIT(button3.pin)) {
+-		if (BT_OTS_OBJ_GET_PROP_READ(otc.cur_object.props)) {
+-			printk("read OTS object\n");
+-			err = bt_ots_client_read_object_data(&otc, default_conn);
+-			if (err != 0) {
+-				printk("Failed to read object %d\n", err);
+-			}
+-		} else {
+-			printk("This OBJ does not support READ OP\n");
+-		}
+-	}
++    if(test_state != STATE_SELECT_OBJ) return -1;
++    if (!first_selected) {
++        printk("first select\n");
++        err = bt_ots_client_select_id(&otc, default_conn, BT_OTS_OBJ_ID_MIN);
++        if(err == 0){
++            first_selected = true;
++        }
++    } else {
++        printk("select next\n");
++        err = bt_ots_client_select_next(&otc, default_conn);
++    }
++
++    if (err != 0) {
++        printk("Failed to select object (err %d)\n", err);
++    }else{
++        printk("Selecting object succeeded\n");
++    }
++
++    return err;
+ }
+ 
++static int test_write_obj(){
++    int err;
++	size_t size_to_write;
++    if(test_state != STATE_WRITE_OBJ) return -1;
++    if (BT_OTS_OBJ_GET_PROP_WRITE(otc.cur_object.props)) {
++        size_to_write = MIN(OBJ_MAX_SIZE, otc.cur_object.size.alloc);
++        (void)memset(obj_data_buf, 0, size_to_write);
++        printk("Going to write OTS object len %d\n", size_to_write);
++        for (uint32_t idx = 0; idx < size_to_write; idx++) {
++            obj_data_buf[idx] = UINT8_MAX - (idx % UINT8_MAX);
++        }
++
++        last_checksum = bt_ots_client_calc_checksum(obj_data_buf, size_to_write);
++        printk("Data sent checksum 0x%08x\n", last_checksum);
++        err = bt_ots_client_write_object_data(&otc, default_conn, obj_data_buf,
++                              size_to_write, 0,
++                              BT_OTS_OACP_WRITE_OP_MODE_NONE);
++        if (err != 0) {
++            printk("Failed to write object (err %d)\n", err);
++        }
++    } else {
++        printk("This OBJ does not support WRITE OP\n");
++        return 0;
++    }
++
++    return err;
++}
++static int test_read_obj_meta(){
++    if(test_state != STATE_READ_OBJ_META) return -1;
++	int err;
++    printk("read OTS object meta\n");
++    err = bt_ots_client_read_object_metadata(&otc, default_conn,
++                         BT_OTS_METADATA_REQ_ALL);
++    if (err != 0) {
++        printk("Failed to read object metadata (err %d)\n", err);
++    }
++    
++    return err;
++}
++static int test_read_obj(){
++	int err;
++    if(test_state != STATE_READ_OBJ) return -1;
++    if (BT_OTS_OBJ_GET_PROP_READ(otc.cur_object.props)) {
++        printk("read OTS object\n");
++        err = bt_ots_client_read_object_data(&otc, default_conn);
++        if (err != 0) {
++            printk("Failed to read object %d\n", err);
++        }
++    } else {
++        printk("This OBJ does not support READ OP\n");
++        return 0;
++    }
++
++    return err;
++}
+ static void otc_checksum_work_fn(struct k_work *work)
+ {
+ 	struct k_work_delayable *dwork = k_work_delayable_from_work(work);
+@@ -178,50 +178,6 @@ static void otc_checksum_work_fn(struct k_work *work)
+ 	}
+ }
+ 
+-static void button_pressed(const struct device *dev, struct gpio_callback *cb, uint32_t pins)
+-{
+-	otc_btn_work.pins = pins;
+-	k_work_schedule(&otc_btn_work.work, K_MSEC(100));
+-}
+-
+-static void configure_button_irq(const struct gpio_dt_spec btn)
+-{
+-	int ret;
+-
+-	if (!gpio_is_ready_dt(&btn)) {
+-		printk("Error: button device %s is not ready\n", btn.port->name);
+-		return;
+-	}
+-
+-	ret = gpio_pin_configure_dt(&btn, GPIO_INPUT);
+-	if (ret != 0) {
+-		printk("Error %d: failed to configure %s pin %d\n", ret, btn.port->name, btn.pin);
+-		return;
+-	}
+-
+-	ret = gpio_pin_interrupt_configure_dt(&btn, GPIO_INT_EDGE_TO_ACTIVE);
+-
+-	if (ret != 0) {
+-		printk("Error %d: failed to configure interrupt on %s pin %d\n", ret,
+-		       btn.port->name, btn.pin);
+-		return;
+-	}
+-
+-	button_cb_data.pin_mask |= BIT(btn.pin);
+-	gpio_add_callback(btn.port, &button_cb_data);
+-
+-	printk("Set up button at %s pin %d\n", btn.port->name, btn.pin);
+-}
+-
+-static void configure_buttons(void)
+-{
+-	gpio_init_callback(&button_cb_data, button_pressed, 0);
+-
+-	for (int idx = 0; idx < BTN_COUNT; idx++) {
+-		configure_button_irq(btns[idx]);
+-	}
+-}
+-
+ static bool eir_found(struct bt_data *data, void *user_data)
+ {
+ 	bt_addr_le_t *addr = user_data;
+@@ -237,7 +193,7 @@ static bool eir_found(struct bt_data *data, void *user_data)
+ 
+ 		for (i = 0; i < data->data_len; i += sizeof(uint16_t)) {
+ 			struct bt_le_conn_param *param;
+-			const struct bt_uuid *uuid;
++			struct bt_uuid *uuid;
+ 			uint16_t u16;
+ 			int err;
+ 
+@@ -342,6 +298,7 @@ static int subscribe_func(void)
+ 			printk("Subscribe OLCP failed %d\n", ret);
+ 			return ret;
+ 		}
++        subscribed = 1;
+ 	}
+ 
+ 	return ret;
+@@ -479,6 +436,7 @@ static uint8_t discover_func(struct bt_conn *conn, const struct bt_gatt_attr *at
+ 
+ 	if (is_discovery_complete()) {
+ 		printk("Discovery complete for OTS Client\n");
++
+ 		err = subscribe_func();
+ 
+ 		if (err != 0) {
+@@ -487,9 +445,12 @@ static uint8_t discover_func(struct bt_conn *conn, const struct bt_gatt_attr *at
+ 
+ 		/* Read feature of OTS server*/
+ 		err = bt_ots_client_read_feature(&otc, default_conn);
++        
++
+ 		if (err != 0) {
+ 			printk("bt_ots_client_read_feature failed (err %d)", err);
+ 		}
++        
+ 	}
+ 
+ 	return BT_GATT_ITER_STOP;
+@@ -568,6 +529,9 @@ static void on_obj_selected(struct bt_ots_client *ots_inst, struct bt_conn *conn
+ 	}
+ 
+ 	(void)memset(obj_data_buf, 0, OBJ_MAX_SIZE);
++    if(test_state == STATE_SELECT_OBJ){
++        test_state = STATE_READ_OBJ_META;
++    }
+ }
+ 
+ static int on_obj_data_read(struct bt_ots_client *ots_inst, struct bt_conn *conn, uint32_t offset,
+@@ -590,10 +554,15 @@ static int on_obj_data_read(struct bt_ots_client *ots_inst, struct bt_conn *conn
+ 		otc_checksum_work.offset = 0;
+ 		otc_checksum_work.len = otc.cur_object.size.cur;
+ 		k_work_schedule(&otc_checksum_work.work, K_NO_WAIT);
++        if(test_state == STATE_READ_OBJ){
++            test_state = STATE_SELECT_OBJ;
++        }
+ 		return BT_OTS_STOP;
+ 	}
+ 
+ 	return BT_OTS_CONTINUE;
++
++	return BT_OTS_CONTINUE;
+ }
+ 
+ static void on_obj_metadata_read(struct bt_ots_client *ots_inst, struct bt_conn *conn, int err,
+@@ -608,6 +577,9 @@ static void on_obj_metadata_read(struct bt_ots_client *ots_inst, struct bt_conn
+ 	}
+ 
+ 	bt_ots_metadata_display(&ots_inst->cur_object, 1);
++    if(test_state == STATE_READ_OBJ_META){
++        test_state = STATE_WRITE_OBJ;
++    }
+ }
+ static void on_obj_data_written(struct bt_ots_client *ots_inst, struct bt_conn *conn, size_t len)
+ {
+@@ -620,6 +592,9 @@ static void on_obj_data_written(struct bt_ots_client *ots_inst, struct bt_conn *
+ 	if (err != 0) {
+ 		printk("Failed to read object metadata (err %d)\n", err);
+ 	}
++    if(test_state == STATE_WRITE_OBJ){
++        test_state = STATE_READ_OBJ;
++    }
+ }
+ 
+ void on_obj_checksum_calculated(struct bt_ots_client *ots_inst,
+@@ -645,16 +620,36 @@ static void bt_otc_init(void)
+ 	bt_ots_client_register(&otc);
+ }
+ 
++void thread_test_entry(){
++    while(!subscribed){
++         k_cpu_idle();
++    }
++
++    for(int i = 0 ; i < 2 ; i++){
++        while(test_select_id() != 0){
++             k_cpu_idle();
++        }
++        while(test_read_obj_meta() !=0){
++             k_cpu_idle();
++        }
++        while(test_write_obj() != 0){
++            k_cpu_idle();
++        }
++        while(test_read_obj() != 0){
++            k_cpu_idle();
++        }
++    }
++}
++
+ int main(void)
+ {
+ 	int err;
+ 
+ 	first_selected = false;
+ 	discovery_state = ATOMIC_INIT(0);
+-	k_work_init_delayable(&otc_btn_work.work, otc_btn_work_fn);
++//	k_work_init_delayable(&otc_btn_work.work, otc_btn_work_fn);
+ 	k_work_init_delayable(&otc_checksum_work.work, otc_checksum_work_fn);
+ 
+-	configure_buttons();
+ 	err = bt_enable(NULL);
+ 
+ 	if (err != 0) {
+@@ -668,3 +663,6 @@ int main(void)
+ 	start_scan();
+ 	return 0;
+ }
++K_THREAD_DEFINE(thread_test, STACKSIZE,
++				thread_test_entry, NULL, NULL, NULL,
++				PRIORITY, 0, 0);
+\ No newline at end of file
+diff --git a/samples/bluetooth/mesh/prj.conf b/samples/bluetooth/mesh/prj.conf
+index 9c8daad913..d37e29b9f1 100644
+--- a/samples/bluetooth/mesh/prj.conf
++++ b/samples/bluetooth/mesh/prj.conf
+@@ -1,11 +1,8 @@
+-CONFIG_SYSTEM_WORKQUEUE_STACK_SIZE=2048
+-
+ CONFIG_BT_SETTINGS=y
+ CONFIG_FLASH=y
+ CONFIG_FLASH_MAP=y
+ CONFIG_NVS=y
+ CONFIG_SETTINGS=y
+-CONFIG_HWINFO=y
+ 
+ CONFIG_BT=y
+ CONFIG_BT_L2CAP_TX_BUF_COUNT=5
+@@ -29,8 +26,11 @@ CONFIG_BT_MESH_FRIEND=y
+ CONFIG_BT_MESH_PB_GATT=y
+ CONFIG_BT_MESH_PB_ADV=y
+ CONFIG_BT_MESH_GATT_PROXY=y
++CONFIG_BT_MESH_CFG_CLI=y
++CONFIG_BT_MESH_HEALTH_CLI=y
++
+ 
+ CONFIG_BT_MESH_SUBNET_COUNT=2
+ CONFIG_BT_MESH_APP_KEY_COUNT=2
+ CONFIG_BT_MESH_MODEL_GROUP_COUNT=2
+-CONFIG_BT_MESH_LABEL_COUNT=3
++CONFIG_BT_MESH_LABEL_COUNT=3
+\ No newline at end of file
+diff --git a/samples/bluetooth/mesh/src/main.c b/samples/bluetooth/mesh/src/main.c
+index b220b354fd..89fc04b644 100644
+--- a/samples/bluetooth/mesh/src/main.c
++++ b/samples/bluetooth/mesh/src/main.c
+@@ -17,361 +17,114 @@
+ 
+ #include <zephyr/bluetooth/bluetooth.h>
+ #include <zephyr/bluetooth/mesh.h>
++#include "mesh/mesh.h"
+ 
+-#include "board.h"
++#define PRIORITY 7
++#define STACKSIZE 1024
+ 
+-#define OP_ONOFF_GET       BT_MESH_MODEL_OP_2(0x82, 0x01)
+-#define OP_ONOFF_SET       BT_MESH_MODEL_OP_2(0x82, 0x02)
+-#define OP_ONOFF_SET_UNACK BT_MESH_MODEL_OP_2(0x82, 0x03)
+-#define OP_ONOFF_STATUS    BT_MESH_MODEL_OP_2(0x82, 0x04)
+ 
+-static void attention_on(const struct bt_mesh_model *mod)
+-{
+-	board_led_set(true);
+-}
+-
+-static void attention_off(const struct bt_mesh_model *mod)
+-{
+-	board_led_set(false);
+-}
+-
+-static const struct bt_mesh_health_srv_cb health_cb = {
+-	.attn_on = attention_on,
+-	.attn_off = attention_off,
+-};
+-
+-static struct bt_mesh_health_srv health_srv = {
+-	.cb = &health_cb,
++static uint8_t dev_uuid[16] = { 0x6c, 0x69, 0x6e, 0x67, 0x61, 0x6f };
++static uint8_t static_key[] = {0x6E, 0x6F, 0x72, 0x64, 0x69, 0x63, 0x5F,
++		0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x5F, 0x31};
++static int mesh_ok = 0;
++static struct bt_mesh_cfg_cli cfg_cli = {
+ };
+ 
+-BT_MESH_HEALTH_PUB_DEFINE(health_pub, 0);
+-
+-static const char *const onoff_str[] = { "off", "on" };
+-
+-static struct {
+-	bool val;
+-	uint8_t tid;
+-	uint16_t src;
+-	uint32_t transition_time;
+-	struct k_work_delayable work;
+-} onoff;
+-
+-/* OnOff messages' transition time and remaining time fields are encoded as an
+- * 8 bit value with a 6 bit step field and a 2 bit resolution field.
+- * The resolution field maps to:
+- * 0: 100 ms
+- * 1: 1 s
+- * 2: 10 s
+- * 3: 20 min
+- */
+-static const uint32_t time_res[] = {
+-	100,
+-	MSEC_PER_SEC,
+-	10 * MSEC_PER_SEC,
+-	10 * 60 * MSEC_PER_SEC,
+-};
+-
+-static inline int32_t model_time_decode(uint8_t val)
+-{
+-	uint8_t resolution = (val >> 6) & BIT_MASK(2);
+-	uint8_t steps = val & BIT_MASK(6);
+-
+-	if (steps == 0x3f) {
+-		return SYS_FOREVER_MS;
+-	}
+-
+-	return steps * time_res[resolution];
+-}
+-
+-static inline uint8_t model_time_encode(int32_t ms)
+-{
+-	if (ms == SYS_FOREVER_MS) {
+-		return 0x3f;
+-	}
+-
+-	for (int i = 0; i < ARRAY_SIZE(time_res); i++) {
+-		if (ms >= BIT_MASK(6) * time_res[i]) {
+-			continue;
+-		}
+-
+-		uint8_t steps = DIV_ROUND_UP(ms, time_res[i]);
+-
+-		return steps | (i << 6);
+-	}
+-
+-	return 0x3f;
+-}
+-
+-static int onoff_status_send(const struct bt_mesh_model *model,
+-			     struct bt_mesh_msg_ctx *ctx)
+-{
+-	uint32_t remaining;
+-
+-	BT_MESH_MODEL_BUF_DEFINE(buf, OP_ONOFF_STATUS, 3);
+-	bt_mesh_model_msg_init(&buf, OP_ONOFF_STATUS);
+-
+-	remaining = k_ticks_to_ms_floor32(
+-			    k_work_delayable_remaining_get(&onoff.work)) +
+-		    onoff.transition_time;
+-
+-	/* Check using remaining time instead of "work pending" to make the
+-	 * onoff status send the right value on instant transitions. As the
+-	 * work item is executed in a lower priority than the mesh message
+-	 * handler, the work will be pending even on instant transitions.
+-	 */
+-	if (remaining) {
+-		net_buf_simple_add_u8(&buf, !onoff.val);
+-		net_buf_simple_add_u8(&buf, onoff.val);
+-		net_buf_simple_add_u8(&buf, model_time_encode(remaining));
+-	} else {
+-		net_buf_simple_add_u8(&buf, onoff.val);
+-	}
+-
+-	return bt_mesh_model_send(model, ctx, &buf, NULL, NULL);
+-}
+-
+-static void onoff_timeout(struct k_work *work)
+-{
+-	if (onoff.transition_time) {
+-		/* Start transition.
+-		 *
+-		 * The LED should be on as long as the transition is in
+-		 * progress, regardless of the target value, according to the
+-		 * Bluetooth Mesh Model specification, section 3.1.1.
+-		 */
+-		board_led_set(true);
+-
+-		k_work_reschedule(&onoff.work, K_MSEC(onoff.transition_time));
+-		onoff.transition_time = 0;
+-		return;
+-	}
+-
+-	board_led_set(onoff.val);
+-}
+-
+-/* Generic OnOff Server message handlers */
+-
+-static int gen_onoff_get(const struct bt_mesh_model *model,
+-			 struct bt_mesh_msg_ctx *ctx,
+-			 struct net_buf_simple *buf)
++static void health_current_status(struct bt_mesh_health_cli *cli, uint16_t addr,
++                  uint8_t test_id, uint16_t cid, uint8_t *faults,
++                  size_t fault_count)
+ {
+-	onoff_status_send(model, ctx);
+-	return 0;
+-}
+-
+-static int gen_onoff_set_unack(const struct bt_mesh_model *model,
+-			       struct bt_mesh_msg_ctx *ctx,
+-			       struct net_buf_simple *buf)
+-{
+-	uint8_t val = net_buf_simple_pull_u8(buf);
+-	uint8_t tid = net_buf_simple_pull_u8(buf);
+-	int32_t trans = 0;
+-	int32_t delay = 0;
++    size_t i;
+ 
+-	if (buf->len) {
+-		trans = model_time_decode(net_buf_simple_pull_u8(buf));
+-		delay = net_buf_simple_pull_u8(buf) * 5;
+-	}
+-
+-	/* Only perform change if the message wasn't a duplicate and the
+-	 * value is different.
+-	 */
+-	if (tid == onoff.tid && ctx->addr == onoff.src) {
+-		/* Duplicate */
+-		return 0;
+-	}
++    printk("Health Current Status from 0x%04x\n", addr);
+ 
+-	if (val == onoff.val) {
+-		/* No change */
+-		return 0;
+-	}
++    if (!fault_count) {
++        printk("Health Test ID 0x%02x Company ID 0x%04x: no faults\n",
++               test_id, cid);
++        return;
++    }
+ 
+-	printk("set: %s delay: %d ms time: %d ms\n", onoff_str[val], delay,
+-	       trans);
+-
+-	onoff.tid = tid;
+-	onoff.src = ctx->addr;
+-	onoff.val = val;
+-	onoff.transition_time = trans;
+-
+-	/* Schedule the next action to happen on the delay, and keep
+-	 * transition time stored, so it can be applied in the timeout.
+-	 */
+-	k_work_reschedule(&onoff.work, K_MSEC(delay));
+-
+-	return 0;
+-}
+-
+-static int gen_onoff_set(const struct bt_mesh_model *model,
+-			 struct bt_mesh_msg_ctx *ctx,
+-			 struct net_buf_simple *buf)
+-{
+-	(void)gen_onoff_set_unack(model, ctx, buf);
+-	onoff_status_send(model, ctx);
++    printk("Health Test ID 0x%02x Company ID 0x%04x Fault Count %zu:\n",
++           test_id, cid, fault_count);
+ 
+-	return 0;
++    for (i = 0; i < fault_count; i++) {
++        printk("\t0x%02x\n", faults[i]);
++    }
+ }
+ 
+-static const struct bt_mesh_model_op gen_onoff_srv_op[] = {
+-	{ OP_ONOFF_GET,       BT_MESH_LEN_EXACT(0), gen_onoff_get },
+-	{ OP_ONOFF_SET,       BT_MESH_LEN_MIN(2),   gen_onoff_set },
+-	{ OP_ONOFF_SET_UNACK, BT_MESH_LEN_MIN(2),   gen_onoff_set_unack },
+-	BT_MESH_MODEL_OP_END,
++static struct bt_mesh_health_cli health_cli = {
++    .current_status = health_current_status,
+ };
+ 
+-/* Generic OnOff Client */
+-
+-static int gen_onoff_status(const struct bt_mesh_model *model,
+-			    struct bt_mesh_msg_ctx *ctx,
+-			    struct net_buf_simple *buf)
+-{
+-	uint8_t present = net_buf_simple_pull_u8(buf);
+-
+-	if (buf->len) {
+-		uint8_t target = net_buf_simple_pull_u8(buf);
+-		int32_t remaining_time =
+-			model_time_decode(net_buf_simple_pull_u8(buf));
+ 
+-		printk("OnOff status: %s -> %s: (%d ms)\n", onoff_str[present],
+-		       onoff_str[target], remaining_time);
+-		return 0;
+-	}
+-
+-	printk("OnOff status: %s\n", onoff_str[present]);
+-
+-	return 0;
+-}
+-
+-static const struct bt_mesh_model_op gen_onoff_cli_op[] = {
+-	{OP_ONOFF_STATUS, BT_MESH_LEN_MIN(1), gen_onoff_status},
+-	BT_MESH_MODEL_OP_END,
+-};
+-
+-/* This application only needs one element to contain its models */
+-static const struct bt_mesh_model models[] = {
+-	BT_MESH_MODEL_CFG_SRV,
+-	BT_MESH_MODEL_HEALTH_SRV(&health_srv, &health_pub),
+-	BT_MESH_MODEL(BT_MESH_MODEL_ID_GEN_ONOFF_SRV, gen_onoff_srv_op, NULL,
+-		      NULL),
+-	BT_MESH_MODEL(BT_MESH_MODEL_ID_GEN_ONOFF_CLI, gen_onoff_cli_op, NULL,
+-		      NULL),
++static const struct bt_mesh_model root_models[] = {
++    BT_MESH_MODEL_CFG_SRV,
++    BT_MESH_MODEL_CFG_CLI(&cfg_cli),
++    BT_MESH_MODEL_HEALTH_CLI(&health_cli),
+ };
+ 
+ static const struct bt_mesh_elem elements[] = {
+-	BT_MESH_ELEM(0, models, BT_MESH_MODEL_NONE),
++    BT_MESH_ELEM(0, root_models, BT_MESH_MODEL_NONE),
+ };
+ 
+-static const struct bt_mesh_comp comp = {
+-	.cid = BT_COMP_ID_LF,
+-	.elem = elements,
+-	.elem_count = ARRAY_SIZE(elements),
++static const struct bt_mesh_comp mesh_comp = {
++    .cid = BT_COMP_ID_LF,
++    .elem = elements,
++    .elem_count = ARRAY_SIZE(elements),
+ };
+ 
+-/* Provisioning */
+ 
+-static int output_number(bt_mesh_output_action_t action, uint32_t number)
++static void prov_complete(uint16_t net_idx, uint16_t addr)
+ {
+-	printk("OOB Number: %u\n", number);
+-
+-	board_output_number(action, number);
+-
+-	return 0;
++    printk("Provision complete %x %x\n", net_idx, addr);
+ }
+-
+-static void prov_complete(uint16_t net_idx, uint16_t addr)
++static void prov_link_open(bt_mesh_prov_bearer_t bearer)
+ {
+-	board_prov_complete();
++    printk("Provision link open\n");
+ }
+-
+-static void prov_reset(void)
++static void prov_link_close(bt_mesh_prov_bearer_t bearer)
+ {
+-	bt_mesh_prov_enable(BT_MESH_PROV_ADV | BT_MESH_PROV_GATT);
++    printk("Provision link close\n");
++}
++static void unprovisioned_beacon(uint8_t uuid[16])
++{
++	bt_mesh_provision_adv(uuid, 0, 0, 0);
+ }
+ 
+-static uint8_t dev_uuid[16];
+-
+-static const struct bt_mesh_prov prov = {
++static struct bt_mesh_prov prov = {
+ 	.uuid = dev_uuid,
+-	.output_size = 4,
+-	.output_actions = BT_MESH_DISPLAY_NUMBER,
+-	.output_number = output_number,
++	.unprovisioned_beacon = unprovisioned_beacon,
+ 	.complete = prov_complete,
+-	.reset = prov_reset,
++	.link_open = prov_link_open,
++	.link_close = prov_link_close,
+ };
+-
+-/** Send an OnOff Set message from the Generic OnOff Client to all nodes. */
+-static int gen_onoff_send(bool val)
+-{
+-	struct bt_mesh_msg_ctx ctx = {
+-		.app_idx = models[3].keys[0], /* Use the bound key */
+-		.addr = BT_MESH_ADDR_ALL_NODES,
+-		.send_ttl = BT_MESH_TTL_DEFAULT,
+-	};
+-	static uint8_t tid;
+-
+-	if (ctx.app_idx == BT_MESH_KEY_UNUSED) {
+-		printk("The Generic OnOff Client must be bound to a key before "
+-		       "sending.\n");
+-		return -ENOENT;
+-	}
+-
+-	BT_MESH_MODEL_BUF_DEFINE(buf, OP_ONOFF_SET_UNACK, 2);
+-	bt_mesh_model_msg_init(&buf, OP_ONOFF_SET_UNACK);
+-	net_buf_simple_add_u8(&buf, val);
+-	net_buf_simple_add_u8(&buf, tid++);
+-
+-	printk("Sending OnOff Set: %s\n", onoff_str[val]);
+-
+-	return bt_mesh_model_send(&models[3], &ctx, &buf, NULL, NULL);
+-}
+-
+-static void button_pressed(struct k_work *work)
+-{
+-	if (bt_mesh_is_provisioned()) {
+-		(void)gen_onoff_send(!onoff.val);
+-		return;
+-	}
+-
+-	/* Self-provision with an arbitrary address.
+-	 *
+-	 * NOTE: This should never be done in a production environment.
+-	 *       Addresses should be assigned by a provisioner, and keys should
+-	 *       be generated from true random numbers. It is done in this
+-	 *       sample to allow testing without a provisioner.
+-	 */
+-	static uint8_t net_key[16];
+-	static uint8_t dev_key[16];
+-	static uint8_t app_key[16];
+-	uint16_t addr;
+-	int err;
+-
+-	if (IS_ENABLED(CONFIG_HWINFO)) {
+-		addr = sys_get_le16(&dev_uuid[0]) & BIT_MASK(15);
+-	} else {
+-		addr = k_uptime_get_32() & BIT_MASK(15);
+-	}
+-
+-	printk("Self-provisioning with address 0x%04x\n", addr);
+-	err = bt_mesh_provision(net_key, 0, 0, 0, addr, dev_key);
+-	if (err) {
+-		printk("Provisioning failed (err: %d)\n", err);
+-		return;
+-	}
+-
+-	/* Add an application key to both Generic OnOff models: */
+-	err = bt_mesh_app_key_add(0, 0, app_key);
+-	if (err) {
+-		printk("App key add failed (err: %d)\n", err);
+-		return;
+-	}
+-
+-	/* Models must be bound to an app key to send and receive messages with
+-	 * it:
+-	 */
+-	models[2].keys[0] = 0;
+-	models[3].keys[0] = 0;
+-
+-	printk("Provisioned and configured!\n");
++static void test_mesh_thread()
++{
++    while(!mesh_ok){
++        k_cpu_idle();
++    }
++    printk("Provisioning start\n");
++    while(!bt_mesh_is_provisioned()) {
++        k_cpu_idle();
++
++        /* Self-provision with an arbitrary address.
++         *
++         * NOTE: This should never be done in a production environment.
++         *       Addresses should be assigned by a provisioner, and keys should
++         *       be generated from true random numbers. It is done in this
++         *       sample to allow testing without a provisioner.
++         */
++        int err;
++
++        err = bt_mesh_provision_adv(dev_uuid, 0, 0 ,0);
++        if (err) {
++            //printk("Provisioning failed (err: %d)\n", err);
++        }
++    }
++    printk("Provisioned and configured!\n");
++    while(1){
++         k_cpu_idle();
++    }
+ }
+ 
+ static void bt_ready(int err)
+@@ -383,52 +136,37 @@ static void bt_ready(int err)
+ 
+ 	printk("Bluetooth initialized\n");
+ 
+-	err = bt_mesh_init(&prov, &comp);
++	err = bt_mesh_init(&prov, &mesh_comp);
+ 	if (err) {
+ 		printk("Initializing mesh failed (err %d)\n", err);
+ 		return;
+ 	}
+-
+ 	if (IS_ENABLED(CONFIG_SETTINGS)) {
+ 		settings_load();
+ 	}
+-
+-	/* This will be a no-op if settings_load() loaded provisioning info */
++    /* This will be a no-op if settings_load() loaded provisioning info */
+ 	bt_mesh_prov_enable(BT_MESH_PROV_ADV | BT_MESH_PROV_GATT);
+ 
+ 	printk("Mesh initialized\n");
++    mesh_ok = 1;
+ }
+ 
+ int main(void)
+ {
+-	static struct k_work button_work;
+ 	int err = -1;
+ 
+ 	printk("Initializing...\n");
+ 
+-	if (IS_ENABLED(CONFIG_HWINFO)) {
+-		err = hwinfo_get_device_id(dev_uuid, sizeof(dev_uuid));
+-	}
+-
+-	if (err < 0) {
+-		dev_uuid[0] = 0xdd;
+-		dev_uuid[1] = 0xdd;
+-	}
+-
+-	k_work_init(&button_work, button_pressed);
+-
+-	err = board_init(&button_work);
+-	if (err) {
+-		printk("Board init failed (err: %d)\n", err);
+-		return 0;
+-	}
+-
+-	k_work_init_delayable(&onoff.work, onoff_timeout);
+-
++    prov.static_val = static_key;
++    prov.static_val_len = sizeof(static_key);
+ 	/* Initialize the Bluetooth Subsystem */
+ 	err = bt_enable(bt_ready);
+ 	if (err) {
+ 		printk("Bluetooth init failed (err %d)\n", err);
+ 	}
++
+ 	return 0;
+ }
++K_THREAD_DEFINE(test_mesh, STACKSIZE,
++                test_mesh_thread, NULL, NULL, NULL,
++                PRIORITY, 0, 0);
+\ No newline at end of file
+diff --git a/samples/bluetooth/mesh_provisioner/src/main.c b/samples/bluetooth/mesh_provisioner/src/main.c
+index 472dc020d4..3b9731a025 100644
+--- a/samples/bluetooth/mesh_provisioner/src/main.c
++++ b/samples/bluetooth/mesh_provisioner/src/main.c
+@@ -10,7 +10,6 @@
+ #include <zephyr/bluetooth/mesh.h>
+ #include <zephyr/drivers/gpio.h>
+ 
+-#define SW0_NODE	DT_ALIAS(sw0)
+ 
+ static const uint16_t net_idx;
+ static const uint16_t app_idx;
+@@ -20,9 +19,8 @@ static uint8_t node_uuid[16];
+ 
+ K_SEM_DEFINE(sem_unprov_beacon, 0, 1);
+ K_SEM_DEFINE(sem_node_added, 0, 1);
+-#if DT_NODE_HAS_STATUS(SW0_NODE, okay)
+-K_SEM_DEFINE(sem_button_pressed, 0, 1);
+-#endif
++static uint8_t static_key[] = {0x6E, 0x6F, 0x72, 0x64, 0x69, 0x63, 0x5F,
++        0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x5F, 0x31};
+ 
+ static struct bt_mesh_cfg_cli cfg_cli = {
+ };
+@@ -249,12 +247,27 @@ static void node_added(uint16_t idx, uint8_t uuid[16], uint16_t addr, uint8_t nu
+ 	k_sem_give(&sem_node_added);
+ }
+ 
+-static const struct bt_mesh_prov prov = {
++
++extern void capabilities(const struct bt_mesh_dev_capabilities *);
++static struct bt_mesh_prov prov = {
+ 	.uuid = dev_uuid,
+ 	.unprovisioned_beacon = unprovisioned_beacon,
+ 	.node_added = node_added,
++    .capabilities = capabilities,
+ };
++void capabilities(const struct bt_mesh_dev_capabilities *cap)
++{
++    if (cap->oob_type & BT_MESH_STATIC_OOB_AVAILABLE) {
++        printk("Static OOB authentication\n");
++        bt_mesh_auth_method_set_static(prov.static_val, prov.static_val_len);
++    }else if (1) {
++        printk("no oob\n");
++        bt_mesh_auth_method_set_none();
++    } else {
++        printk("No OOB in capability frame\n");
++    }
+ 
++}
+ static int bt_ready(void)
+ {
+ 	uint8_t net_key[16], dev_key[16];
+@@ -315,39 +328,7 @@ static uint8_t check_unconfigured(struct bt_mesh_cdb_node *node, void *data)
+ 	return BT_MESH_CDB_ITER_CONTINUE;
+ }
+ 
+-#if DT_NODE_HAS_STATUS(SW0_NODE, okay)
+-static const struct gpio_dt_spec button = GPIO_DT_SPEC_GET_OR(SW0_NODE, gpios, {0});
+-static struct gpio_callback button_cb_data;
+-
+-static void button_pressed(const struct device *dev, struct gpio_callback *cb, uint32_t pins)
+-{
+-	k_sem_give(&sem_button_pressed);
+-}
+-
+-static void button_init(void)
+-{
+-	int ret;
+ 
+-	if (!gpio_is_ready_dt(&button)) {
+-		printk("Error: button device %s is not ready\n", button.port->name);
+-		return;
+-	}
+-	ret = gpio_pin_configure_dt(&button, GPIO_INPUT);
+-	if (ret != 0) {
+-		printk("Error %d: failed to configure %s pin %d\n", ret, button.port->name,
+-		       button.pin);
+-		return;
+-	}
+-	ret = gpio_pin_interrupt_configure_dt(&button, GPIO_INT_EDGE_TO_ACTIVE);
+-	if (ret != 0) {
+-		printk("Error %d: failed to configure interrupt on %s pin %d\n", ret,
+-		       button.port->name, button.pin);
+-		return;
+-	}
+-	gpio_init_callback(&button_cb_data, button_pressed, BIT(button.pin));
+-	gpio_add_callback(button.port, &button_cb_data);
+-}
+-#endif
+ 
+ int main(void)
+ {
+@@ -355,6 +336,8 @@ int main(void)
+ 	int err;
+ 
+ 	printk("Initializing...\n");
++    prov.static_val = static_key;
++    prov.static_val_len = sizeof(static_key);
+ 
+ 	/* Initialize the Bluetooth Subsystem */
+ 	err = bt_enable(NULL);
+@@ -366,11 +349,10 @@ int main(void)
+ 	printk("Bluetooth initialized\n");
+ 	bt_ready();
+ 
+-#if DT_NODE_HAS_STATUS(SW0_NODE, okay)
+-	button_init();
+-#endif
+ 
+ 	while (1) {
++        k_cpu_idle();
++
+ 		k_sem_reset(&sem_unprov_beacon);
+ 		k_sem_reset(&sem_node_added);
+ 		bt_mesh_cdb_node_foreach(check_unconfigured, NULL);
+@@ -383,15 +365,6 @@ int main(void)
+ 
+ 		bin2hex(node_uuid, 16, uuid_hex_str, sizeof(uuid_hex_str));
+ 
+-#if DT_NODE_HAS_STATUS(SW0_NODE, okay)
+-		k_sem_reset(&sem_button_pressed);
+-		printk("Device %s detected, press button 1 to provision.\n", uuid_hex_str);
+-		err = k_sem_take(&sem_button_pressed, K_SECONDS(30));
+-		if (err == -EAGAIN) {
+-			printk("Timed out, button 1 wasn't pressed in time.\n");
+-			continue;
+-		}
+-#endif
+ 
+ 		printk("Provisioning %s\n", uuid_hex_str);
+ 		err = bt_mesh_provision_adv(node_uuid, net_idx, 0, 0);
+@@ -410,4 +383,4 @@ int main(void)
+ 		printk("Added node 0x%04x\n", node_addr);
+ 	}
+ 	return 0;
+-}
++}
+\ No newline at end of file

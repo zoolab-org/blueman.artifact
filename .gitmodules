@@ -1,0 +1,4 @@
+[submodule "blueman-main"]
+	path = blueman-main
+	url = git@github.com:zoolab-org/blueman.git
+	branch = public
