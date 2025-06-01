@@ -6,18 +6,22 @@ ACTIONS=(
   hr_peripheral
   sm_pairing_peripheral
   le_credit_server
+  ots_peripheral
   gatt_write_central
   hr_central
   sm_pairing_central
   le_credit_client
+  otc_central
 )
 MUTATORS=(field afl random)
 
 PKTSELS=(FIXED_PROB_10 FIXED_PROB_25 FIXED_PROB_50 FIXED_PROB_75 FIXED_PROB_100
          SELECTIVE_25_75 SELECTIVE_75_25 RANDOM_PROB MIXED_PROB)
 
-if [[ $# -lt 3 || $# -gt 4 ]]; then
-  echo "Usage: $0 <action> <mutator> [packet selection strategies] <output_dir>"
+EXE_DURS=(1 10 60 720 1440 43200)
+
+if [[ $# -lt 4 || $# -gt 5 ]]; then
+  echo "Usage: $0 <action> <mutator> [packet selection strategies] <execution duration> <output_dir>"
   echo
   echo "Available actions:"
   for a in "${ACTIONS[@]}"; do
@@ -33,19 +37,26 @@ if [[ $# -lt 3 || $# -gt 4 ]]; then
   for p in "${PKTSELS[@]}"; do
     echo "  - $p"
   done
+  echo
+  echo "Available execution duration (in minutes):"
+  for p in "${EXE_DURS[@]}"; do
+    echo "  - $p"
+  done
   exit 1
 fi
 
 
-if [[ $# -eq 3 ]]; then
+if [[ $# -eq 4 ]]; then
   ACTION="$1"
   MUTATOR="$2"
-  OUTPUT_DIR="$3"
-elif [[ $# -eq 4 ]]; then
+  SET_TIMER="$3"
+  OUTPUT_DIR="$4"
+elif [[ $# -eq 5 ]]; then
   ACTION="$1"
   MUTATOR="$2"
   PKTSEL="$3"  
-  OUTPUT_DIR="$4"
+  SET_TIMER="$4"
+  OUTPUT_DIR="$5"
 fi
 
 
@@ -90,6 +101,11 @@ case "$ACTION" in
     attack="$BTSTACK_BUILD_DIR/le_credit_based_flow_control_mode_client/zephyr/zephyr.exe"
     ;;
 
+  ots_peripheral)
+    target="$ZEPHYR_BUILD_DIR/instrumented_peripheral_ots/zephyr/zephyr.exe"
+    attack="$ZEPHYR_BUILD_DIR/central_otc/zephyr/zephyr.exe"
+    ;;
+
   gatt_write_central)
     target="$ZEPHYR_BUILD_DIR/instrumented_central_gatt_write/zephyr/zephyr.exe"
     attack="$ZEPHYR_BUILD_DIR/peripheral_gatt_write/zephyr/zephyr.exe"
@@ -115,6 +131,11 @@ case "$ACTION" in
     attack="$BTSTACK_BUILD_DIR/le_credit_based_flow_control_mode_server/zephyr/zephyr.exe"
     ;;
 
+  otc_central) 
+    target="$ZEPHYR_BUILD_DIR/instrumented_central_otc/zephyr/zephyr.exe"
+    attack="$ZEPHYR_BUILD_DIR/peripheral_ots/zephyr/zephyr.exe"
+    ;;
+
   *)
     echo "Unknown action: $ACTION"
     exit 1
@@ -122,7 +143,7 @@ case "$ACTION" in
 esac
 
 # Third parameter: pktsel parameter for field mutator
-if [[ "$MUTATOR" == "field" && $# -eq 4 ]]; then
+if [[ "$MUTATOR" == "field" && $# -eq 5 ]]; then
   if [[ ! " ${PKTSELS[@]} " =~ " ${PKTSEL} " ]]; then
     echo "Unknown packet selection strategy '$PKTSEL'"
     echo "Available strategies: ${PKTSELS[*]}"
@@ -140,7 +161,7 @@ case "$MUTATOR" in
   afl)
     echo "Applying AFL-only mutator"
     MUTATOR_FLAG="MUTATOR=afl"
-    if [[ $# -eq 4 ]]; then
+    if [[ $# -eq 5 ]]; then
       echo "Warning: Packet selection strategy '$PKTSEL' is ignored for AFL mutator"
     fi
     ;;
@@ -148,7 +169,7 @@ case "$MUTATOR" in
   random)
     echo "Applying random mutator"
     MUTATOR_FLAG="MUTATOR=random"
-    if [[ $# -eq 4 ]]; then
+    if [[ $# -eq 5 ]]; then
       echo "Warning: Packet selection strategy '$PKTSEL' is ignored for random mutator"
     fi
     ;;
@@ -160,7 +181,33 @@ case "$MUTATOR" in
     ;;
 esac
 
-echo "Running action '$ACTION' with target=$target and attack=$attack using mutator '$MUTATOR' and packet selection strategy '$PKTSEL'"
+case "$SET_TIMER" in
+  1)
+    SET_TIMER=60
+    ;;
+
+  10)
+    SET_TIMER=600
+    ;;
+
+  60)
+    SET_TIMER=3600
+    ;;
+
+  720)
+    SET_TIMER=43200
+    ;;
+
+  1440)
+    SET_TIMER=86400
+    ;;
+	
+  *)
+    SET_TIMER=2592000
+    ;;
+esac
+
+echo "Running action '$ACTION' with target=$target and attack=$attack using mutator '$MUTATOR' and packet selection strategy '$PKTSEL' and execution duration '$SET_TIMER'"
 # Execute inside Docker
 # Run in Docker with output_dir mounted to run folder
 echo "Running Docker container '$DOCKER_IMAGE' with output directory '$OUTPUT_DIR'"
@@ -174,6 +221,6 @@ fi
 docker run --rm -it \
   -v "$OUTPUT_DIR":/root/blueman-main/run \
   $DOCKER_IMAGE \
-  /bin/bash -lc "cd /root/blueman-main && make build_stat $MUTATOR_FLAG && cd run && rm -rf output && ./main $BSIM_DIR '$attack' '$target' $FINAL_ARG"
+  /bin/bash -lc "cd /root/blueman-main && make build_stat SET_TIMER=$SET_TIMER $MUTATOR_FLAG && cd run && rm -rf output && ./main $BSIM_DIR '$attack' '$target' $FINAL_ARG"
 
 

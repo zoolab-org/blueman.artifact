@@ -21,17 +21,19 @@ Please note that our tool can only be run on x86_64 machines
 ## Test Target
 Executing **./run.sh** without any arguments displays the usage information for the tool.
 ```bash
-Usage: ./run.sh <action> <mutator> [packet selection strategies] <output_dir>
+Usage: ./run.sh <action> <mutator> [packet selection strategies] <execution duration> <output_dir>
 
 Available actions:
   - gatt_write_peripheral
   - hr_peripheral
   - sm_pairing_peripheral
   - le_credit_server
+  - ots_peripheral
   - gatt_write_central
   - hr_central
   - sm_pairing_central
   - le_credit_client
+  - otc_central
 
 Available mutators:
   - field
@@ -48,6 +50,14 @@ Available packet selection strategies (for field mutator only):
   - SELECTIVE_75_25
   - RANDOM_PROB
   - MIXED_PROB
+
+Available execution duration (in minutes):
+  - 1
+  - 10
+  - 60
+  - 720
+  - 1440
+  - 43200
 ```
 ### Available Actions
 - gatt_write_peripheral
@@ -89,15 +99,15 @@ To start fuzzing, choose at least an action and a mutator from the list.
 > [!IMPORTANT]
 > Each new fuzz test should use a separate directory to store the results.
 
-For instance, if you want to test sm_pairing_peripheral with the AFL mutator, you can run the following commands:
+For instance, if you want to test sm_pairing_peripheral for 1 minute with the AFL mutator, you can run the following commands:
 ```bash
 mkdir results
-./run.sh sm_pairing_peripheral afl ./results
+./run.sh sm_pairing_peripheral afl 1 $PWD/results
 ```
-Or if you want to test gatt_write_central with the field mutator, you can run the following commands:
+Or if you want to test gatt_write_central for 1 minute with the field mutator, you can run the following commands:
 ```bash
 mkdir results
-./run.sh gatt_write_central field FIXED_PROB_100 ./results
+./run.sh gatt_write_central field FIXED_PROB_100 1 $PWD/results
 ```
 
 ## Reported CVEs
