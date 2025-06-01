@@ -44,7 +44,7 @@ if [[ $# -eq 3 ]]; then
 elif [[ $# -eq 4 ]]; then
   ACTION="$1"
   MUTATOR="$2"
-  PKTSEL="${3:-FIXED_PROB_50}"  # Default to FIXED_PROB_50 if not specified
+  PKTSEL="$3"  
   OUTPUT_DIR="$4"
 fi
 
@@ -80,6 +80,11 @@ case "$ACTION" in
     attack="$BTSTACK_BUILD_DIR/sm_pairing_central/zephyr/zephyr.exe"
     ;;
 
+  peripheral_ots)
+    target="$ZEPHYR_BUILD_DIR/instrumented_peripheral_ots/zephyr/zephyr.exe"
+    attack="$ZEPHYR_BUILD_DIR/central_otc/zephyr/zephyr.exe"
+    ;;
+
   le_credit_server)
     target="$BTSTACK_BUILD_DIR/instrumented_le_credit_based_flow_control_mode_server/zephyr/zephyr.exe"
     attack="$BTSTACK_BUILD_DIR/le_credit_based_flow_control_mode_client/zephyr/zephyr.exe"
@@ -99,11 +104,16 @@ case "$ACTION" in
     target="$BTSTACK_BUILD_DIR/instrumented_sm_pairing_central/zephyr/zephyr.exe"
     attack="$BTSTACK_BUILD_DIR/sm_pairing_peripheral/zephyr/zephyr.exe"
     ;;
+
+  central_otc)
+    target="$ZEPHYR_BUILD_DIR/instrumented_central_otc/zephyr/zephyr.exe"
+    attack="$ZEPHYR_BUILD_DIR/peripheral_ots/zephyr/zephyr.exe"
+    ;;
+
   le_credit_client)
     target="$BTSTACK_BUILD_DIR/instrumented_le_credit_based_flow_control_mode_client/zephyr/zephyr.exe"
     attack="$BTSTACK_BUILD_DIR/le_credit_based_flow_control_mode_server/zephyr/zephyr.exe"
     ;;
-
 
   *)
     echo "Unknown action: $ACTION"
@@ -154,9 +164,16 @@ echo "Running action '$ACTION' with target=$target and attack=$attack using muta
 # Execute inside Docker
 # Run in Docker with output_dir mounted to run folder
 echo "Running Docker container '$DOCKER_IMAGE' with output directory '$OUTPUT_DIR'"
+
+if [[ "$MUTATOR" == "field" && -n "$PKTSEL" ]]; then
+  FINAL_ARG="${MUTATOR}_${PKTSEL}"
+else
+  FINAL_ARG="$MUTATOR"
+fi
+
 docker run --rm -it \
   -v "$OUTPUT_DIR":/root/blueman-main/run \
   $DOCKER_IMAGE \
-  /bin/bash -lc "cd /root/blueman-main && make build_stat $MUTATOR_FLAG && cd run && rm -rf output && ./main $BSIM_DIR '$attack' '$target' $MUTATOR"
+  /bin/bash -lc "cd /root/blueman-main && make build_stat $MUTATOR_FLAG && cd run && rm -rf output && ./main $BSIM_DIR '$attack' '$target' $FINAL_ARG"
 
 
