@@ -81,8 +81,8 @@ case "$ACTION" in
     attack="$ZEPHYR_BUILD_DIR/central_gatt_write/zephyr/zephyr.exe"
     ;;
 
-  hr_peripheral)
-    target="$ZEPHYR_BUILD_DIR/instrumented_peripheral_hr/zephyr/zephyr.exe"
+  peripheral)
+    target="$ZEPHYR_BUILD_DIR/instrumented_peripheral/zephyr/zephyr.exe"
     attack="$ZEPHYR_BUILD_DIR/central_hr/zephyr/zephyr.exe"
     ;;
 
@@ -113,7 +113,7 @@ case "$ACTION" in
 
   hr_central)
     target="$ZEPHYR_BUILD_DIR/instrumented_central_hr/zephyr/zephyr.exe"
-    attack="$ZEPHYR_BUILD_DIR/peripheral_hr/zephyr/zephyr.exe"
+    attack="$ZEPHYR_BUILD_DIR/peripheral/zephyr/zephyr.exe"
     ;;
 
   sm_pairing_central)

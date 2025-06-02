@@ -25,7 +25,7 @@ Usage: ./run.sh <action> <mutator> [packet selection strategies] <execution dura
 
 Available actions:
   - gatt_write_peripheral
-  - hr_peripheral
+  - peripheral
   - sm_pairing_peripheral
   - le_credit_server
   - ots_peripheral
@@ -63,9 +63,9 @@ Available execution duration (in minutes):
 - gatt_write_peripheral
     - Testing the **samples
 /bluetooth/peripheral_gatt_write** example in Zephyr
-- hr_peripheral
+- peripheral
     - Testing the **samples
-/bluetooth/peripheral_hr** example in Zephyr
+/bluetooth/peripheral** example in Zephyr
 - sm_pairing_peripheral
     - Testing the **example/sm_pairing_peripheral.c** example in BTstack
 - le_credit_server

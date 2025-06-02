@@ -8,8 +8,8 @@ west build -b nrf52_bsim \
   -- -DCONFIG_WITHOUT_BTFUZZ=y
 
 west build -b nrf52_bsim \
-  -d build/peripheral_hr \
-  samples/bluetooth/peripheral_hr \
+  -d build/peripheral \
+  samples/bluetooth/peripheral \
   -- -DCONFIG_WITHOUT_BTFUZZ=y
 
 west build -b nrf52_bsim \
@@ -36,8 +36,8 @@ export AFL_CC=$(which gcc)
 export AFL_PATH=~/AFL_FOR_ZEPHYR_BLE 
 export PATH=$HOME/bin/:$PATH
 west build -b nrf52_bsim \
-  -d build/instrumented_peripheral_hr \
-  samples/bluetooth/peripheral_hr
+  -d build/instrumented_peripheral \
+  samples/bluetooth/peripheral
 
 west build -b nrf52_bsim \
   -d build/instrumented_central_hr \
