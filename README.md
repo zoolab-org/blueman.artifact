@@ -55,6 +55,8 @@ Available execution duration (in minutes):
   - 1
   - 10
   - 60
+  - 120
+  - 360
   - 720
   - 1440
   - 43200

@@ -18,7 +18,7 @@ MUTATORS=(field afl random)
 PKTSELS=(FIXED_PROB_10 FIXED_PROB_25 FIXED_PROB_50 FIXED_PROB_75 FIXED_PROB_100
          SELECTIVE_25_75 SELECTIVE_75_25 RANDOM_PROB MIXED_PROB)
 
-EXE_DURS=(1 10 60 720 1440 43200)
+EXE_DURS=(1 10 60 120 360 720 1440 43200)
 
 if [[ $# -lt 4 || $# -gt 5 ]]; then
   echo "Usage: $0 <action> <mutator> [packet selection strategies] <execution duration> <output_dir>"
@@ -194,6 +194,14 @@ case "$SET_TIMER" in
     SET_TIMER=3600
     ;;
 
+  120)
+    SET_TIMER=7200
+    ;;
+
+  360)
+    SET_TIMER=21600
+    ;;
+
   720)
     SET_TIMER=43200
     ;;
@@ -203,7 +211,8 @@ case "$SET_TIMER" in
     ;;
 	
   *)
-    SET_TIMER=2592000
+    echo "Invalid execution duration"
+    exit 1
     ;;
 esac
 
