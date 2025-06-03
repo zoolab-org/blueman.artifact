@@ -218,7 +218,7 @@ else
   FINAL_ARG="$MUTATOR"
 fi
 
-docker run --rm -it \
+docker run --rm -i \
   -v "$OUTPUT_DIR":/root/blueman-main/run \
   $DOCKER_IMAGE \
   /bin/bash -lc "cd /root/blueman-main && make build_stat SET_TIMER=$SET_TIMER $MUTATOR_FLAG && cd run && rm -rf output && ./main $BSIM_DIR '$attack' '$target' $FINAL_ARG"

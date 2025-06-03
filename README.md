@@ -109,6 +109,20 @@ Or if you want to test gatt_write_central for 1 minute with the field mutator, y
 mkdir results
 ./run.sh gatt_write_central field FIXED_PROB_100 1 $PWD/results
 ```
+## Auto Run RQ3 and RQ4
+The following command runs three different mutator in RQ3 experiments — `field-aware`, `random`, and `afl` — based on the specified `action`.
+```bash
+./auto_gen_rq3.sh <action> <execution duration>
+```
+The resulting plot will be saved to:
+`$PWD/<action>_rq3/eval_<action>/cov/coverage.pdf`
+
+The following fommand runs nine different packet selection strategies in RQ4 experiments — `FIXED_PROB_10`, `FIXED_PROB_25`, `FIXED_PROB_50`, `FIXED_PROB_75`, `FIXED_PROB_100`, `SELECTIVE_25_75`, `SELECTIVE_75_25`, `RANDOM_PROB`, `MIXED_PROB` — based on the specified `action`.
+```bash
+./auto_gen_rq4.sh <action> <execution duration>
+```
+The resulting plot will be saved to:
+`$PWD/<action>_rq4/eval_<action>/cov/coverage.pdf`
 
 ## Reported CVEs
 
