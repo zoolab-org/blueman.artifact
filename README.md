@@ -63,9 +63,9 @@ Available execution duration (in minutes):
 - gatt_write_peripheral
     - Testing the **samples
 /bluetooth/peripheral_gatt_write** example in Zephyr
-- peripheral
+- hr_peripheral
     - Testing the **samples
-/bluetooth/peripheral** example in Zephyr
+/bluetooth/peripheral_hr** example in Zephyr
 - sm_pairing_peripheral
     - Testing the **example/sm_pairing_peripheral.c** example in BTstack
 - le_credit_server

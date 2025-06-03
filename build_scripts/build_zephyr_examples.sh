@@ -13,6 +13,11 @@ west build -b nrf52_bsim \
   -- -DCONFIG_WITHOUT_BTFUZZ=y
 
 west build -b nrf52_bsim \
+  -d build/peripheral_hr \
+  samples/bluetooth/peripheral_hr \
+  -- -DCONFIG_WITHOUT_BTFUZZ=y
+
+west build -b nrf52_bsim \
   -d build/peripheral_gatt_write \
   samples/bluetooth/peripheral_gatt_write \
   -- -DCONFIG_WITHOUT_BTFUZZ=y
@@ -38,6 +43,10 @@ export PATH=$HOME/bin/:$PATH
 west build -b nrf52_bsim \
   -d build/instrumented_peripheral \
   samples/bluetooth/peripheral
+
+west build -b nrf52_bsim \
+  -d build/instrumented_peripheral_hr \
+  samples/bluetooth/peripheral_hr
 
 west build -b nrf52_bsim \
   -d build/instrumented_central_hr \
