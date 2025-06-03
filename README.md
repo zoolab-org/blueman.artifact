@@ -25,7 +25,7 @@ Usage: ./run.sh <action> <mutator> [packet selection strategies] <execution dura
 
 Available actions:
   - gatt_write_peripheral
-  - peripheral
+  - hr_peripheral
   - sm_pairing_peripheral
   - le_credit_server
   - ots_peripheral
