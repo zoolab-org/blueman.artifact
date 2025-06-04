@@ -56,6 +56,9 @@ eval_gatt_write_peripheral/
 ```
 
 ## 4. Generate the Coverage PDF
+You can generate the coverage plot in RQ3 using: `./gen_rq3.sh <execution duration> <path_to_evaluation_directory>`
+
+This script processes the CSV statistics and generates a PDF plot comparing coverage over time in `<path_to_evaluation_directory>/cov/coverage.pdf`
 
 With all three strategy outputs in `eval_gatt_write_peripheral/input_dir`, run:
 

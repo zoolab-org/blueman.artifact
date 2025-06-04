@@ -137,7 +137,7 @@ case "$ACTION" in
     ;;
 
   *)
-    echo "Unknown action: $ACTION"
+    echo "Error: unknown action $ACTION"
     exit 1
     ;;
 esac
@@ -145,8 +145,11 @@ esac
 # Third parameter: pktsel parameter for field mutator
 if [[ "$MUTATOR" == "field" && $# -eq 5 ]]; then
   if [[ ! " ${PKTSELS[@]} " =~ " ${PKTSEL} " ]]; then
-    echo "Unknown packet selection strategy '$PKTSEL'"
-    echo "Available strategies: ${PKTSELS[*]}"
+    echo "Error: unknown packet selection strategy '$PKTSEL'"
+    echo "Available packet selection strategies:"
+    for p in "${PKTSELS[@]}"; do
+      echo "  - $p"
+    done
     exit 1
   fi
 fi

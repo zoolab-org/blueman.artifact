@@ -106,8 +106,11 @@ eval_peripheral_ots/
 ```
 
 ## 4. Generate the Coverage PDF
+You can generate the coverage plot in RQ4 using: `./gen_rq4.sh <execution duration> <path_to_evaluation_directory>`
 
-With all nine strategy outputs in `eeval_peripheral_ots/input_dir`, run:
+This script processes the CSV statistics and generates a PDF plot comparing coverage over time in `<path_to_evaluation_directory>/cov/coverage.pdf`
+
+With all nine strategy outputs in `eval_peripheral_ots/input_dir`, run:
 
 ```bash
 ./gen_rq4.sh 10 $PWD/eval_peripheral_ots
