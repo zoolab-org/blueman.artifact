@@ -121,7 +121,7 @@ The resulting plot will be saved to:
 `$PWD/<action>_rq3/eval_<action>/cov/coverage.pdf`
 
 > [!IMPORTANT]
-> Due to limited computing resources, execution speed may be affected. You may selectively execute commands according to the `EVALUATION_RQ4.md`file to adapt to your environment.
+> Due to limited computing resources, execution speed may be affected. You may selectively execute commands according to the `EVALUATION_RQ3.md`file to adapt to your environment.
 
 
 ### RQ4: Packet Selection Strategy
