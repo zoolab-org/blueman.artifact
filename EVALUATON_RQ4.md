@@ -110,7 +110,7 @@ eval_peripheral_ots/
 With all nine strategy outputs in `eeval_peripheral_ots/input_dir`, run:
 
 ```bash
-./gen_rq4.sh $PWD/eval_peripheral_ots
+./gen_rq4.sh 10 $PWD/eval_peripheral_ots
 ```
 
 This script will process the nine statistic files and produce a PDF showing coverage curves, saving it to:

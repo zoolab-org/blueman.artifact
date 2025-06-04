@@ -60,7 +60,7 @@ eval_gatt_write_peripheral/
 With all three strategy outputs in `eval_gatt_write_peripheral/input_dir`, run:
 
 ```bash
-./gen_rq3.sh $PWD/eval_gatt_write_peripheral
+./gen_rq3.sh 10 $PWD/eval_gatt_write_peripheral 
 ```
 
 This script will process the three statistic files and produce a PDF showing coverage curves, saving it to:
