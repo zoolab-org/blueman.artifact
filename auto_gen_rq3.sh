@@ -56,9 +56,7 @@ for MUTATOR in "${MUTATORS[@]}"; do
   ./run.sh "$ACTION" "$MUTATOR" "$DURATION" "$PWD/$OUTDIR" > /dev/null &
   
 done
-
-# wait
-sleep $(($DURATION * 60 + 50))
+wait
 
 # 2. create a unified eval directory
 mkdir -p "${EVAL_DIR}/input_dir"

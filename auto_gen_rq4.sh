@@ -65,9 +65,8 @@ for STRATEGY in "${STRATEGIES[@]}"; do
   echo "==> Running: $ACTION $STRATEGY"
   ./run.sh "$ACTION" field "$STRATEGY" "$DURATION" "$PWD/$OUTDIR" > /dev/null &
 done
+wait
 
-# wait
-sleep $(($DURATION * 60 + 50))
 
 # 2. create a unified eval directory
 mkdir -p "${EVAL_DIR}/input_dir"
