@@ -118,7 +118,7 @@ The following command runs three different mutator in RQ3 experiments — `field
 ./auto_gen_rq3.sh <action> <execution duration>
 ```
 The resulting plot will be saved to:
-`$PWD/<action>_rq3/eval_<action>/cov/coverage.pdf`
+`$PWD/<action>_<execution duration>_rq3/eval_<action>/cov/coverage.pdf`
 
 > [!IMPORTANT]
 > Due to limited computing resources, execution speed may be affected. You may selectively execute commands according to the `EVALUATION_RQ3.md`file to adapt to your environment.
@@ -130,7 +130,7 @@ The following fommand runs nine different packet selection strategies in RQ4 exp
 ./auto_gen_rq4.sh <action> <execution duration>
 ```
 The resulting plot will be saved to:
-`$PWD/<action>_rq4/eval_<action>/cov/coverage.pdf`
+`$PWD/<action>_<execution duration>_rq4/eval_<action>/cov/coverage.pdf`
 
 > [!IMPORTANT]
 > Due to limited computing resources, execution speed may be affected. You may selectively execute commands according to the `EVALUATION_RQ4.md`file to adapt to your environment.
