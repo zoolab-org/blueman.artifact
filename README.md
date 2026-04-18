@@ -4,7 +4,7 @@
 
 This is the repository for the artifact accompanying the paper "BLuEMan: A Stateful Simulation-based Fuzzing Framework for Open-Source RTOS Bluetooth Low Energy Protocol Stacks."
 
-**Full Paper:** TBA
+**Full Paper:** [https://www.usenix.org/conference/usenixsecurity25/presentation/kao](https://www.usenix.org/conference/usenixsecurity25/presentation/kao)
 
 ## Setup
 > [!IMPORTANT]
